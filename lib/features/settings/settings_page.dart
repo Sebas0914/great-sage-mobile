@@ -4,6 +4,7 @@ import '../../core/assistant/assistant_settings.dart';
 import '../../core/assistant/assistant_settings_repository.dart';
 import '../../core/storage/shared_preferences_storage.dart';
 import '../../core/overlay/android_overlay_service.dart';
+import '../raphael/raphael_runtime.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -26,6 +27,7 @@ class _SettingsPageState extends State<SettingsPage> {
   String? status;
 
   final overlay = const AndroidOverlayService();
+  final raphael = RaphaelRuntime.instance;
 
   @override
   void initState() {
@@ -110,7 +112,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
     if (overlayActive) {
       try {
-        await overlay.hideRaphael();
+        await raphael.setFloating(false);
         if (mounted) {
           setState(() {
             overlayActive = false;
@@ -125,7 +127,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
     if (await overlay.hasPermission()) {
       try {
-        await overlay.showRaphael();
+        await raphael.setFloating(true);
         if (mounted) {
           setState(() {
             overlayActive = true;
