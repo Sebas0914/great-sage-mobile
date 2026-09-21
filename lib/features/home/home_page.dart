@@ -1,13 +1,26 @@
 import 'package:flutter/material.dart';
 import '../chat/chat_page.dart';
 import '../raphael/raphael_page.dart';
+import '../settings/settings_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('GREAT SAGE Mobile')),
+        appBar: AppBar(
+          title: const Text('GREAT SAGE Mobile'),
+          actions: [
+            IconButton(
+              tooltip: 'Configuración',
+              icon: const Icon(Icons.settings_outlined),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsPage()),
+              ),
+            ),
+          ],
+        ),
         body: ListView(
           padding: const EdgeInsets.all(20),
           children: [
