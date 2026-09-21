@@ -13,13 +13,15 @@ class DeviceVoiceService implements VoiceService {
   final FlutterTts _tts;
   final stt.SpeechToText _speech;
   bool _initialized = false;
+  bool _speechAvailable = false;
 
   @override
   Future<bool> initialize() async {
-    if (_initialized) return true;
+    if (_initialized) return _speechAvailable;
 
-    final available = await _speech.initialize();
-    if (!available) return false;
+    _speechAvailable = await _speech.initialize(
+      onError: (_) => _speechAvailable = false,
+    );
 
     await _tts.setLanguage('es-MX');
     await _tts.setSpeechRate(0.48);
@@ -27,7 +29,7 @@ class DeviceVoiceService implements VoiceService {
     await _tts.setPitch(1.0);
 
     _initialized = true;
-    return true;
+    return _speechAvailable;
   }
 
   @override
@@ -38,18 +40,21 @@ class DeviceVoiceService implements VoiceService {
     if (!await initialize()) return false;
     if (_speech.isListening) return true;
 
-    await _speech.listen(
-      localeId: localeId,
-      listenOptions: stt.SpeechListenOptions(
-        partialResults: true,
-        cancelOnError: false,
-      ),
-      onResult: (result) {
-        onResult(result.recognizedWords, result.finalResult);
-      },
-    );
-
-    return true;
+    try {
+      await _speech.listen(
+        localeId: localeId,
+        listenOptions: stt.SpeechListenOptions(
+          partialResults: true,
+          cancelOnError: false,
+        ),
+        onResult: (result) {
+          onResult(result.recognizedWords, result.finalResult);
+        },
+      );
+      return _speech.isListening;
+    } catch (_) {
+      return false;
+    }
   }
 
   @override
