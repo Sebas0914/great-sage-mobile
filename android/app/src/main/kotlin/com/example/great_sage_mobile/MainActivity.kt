@@ -34,7 +34,18 @@ class MainActivity : FlutterActivity() {
                             result.success(true)
                         }
                     }
-                    "setMood" -> {\n                        val mood = call.arguments as? String ?: "neutral"\n                        val intent = Intent(this, RaphaelOverlayService::class.java)\n                        intent.putExtra("mood", mood)\n                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {\n                            startForegroundService(intent)\n                        } else {\n                            startService(intent)\n                        }\n                        result.success(true)\n                    }\n                    "show" -> {
+                    "setMood" -> {
+                        val mood = call.arguments as? String ?: "neutral"
+                        val intent = Intent(this, RaphaelOverlayService::class.java)
+                        intent.putExtra("mood", mood)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(intent)
+                        } else {
+                            startService(intent)
+                        }
+                        result.success(true)
+                    }
+                    "show" -> {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
                             !Settings.canDrawOverlays(this)
                         ) {
