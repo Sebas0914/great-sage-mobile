@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/assistant/assistant_settings.dart';
 import '../../core/assistant/assistant_settings_repository.dart';
 import '../../core/storage/shared_preferences_storage.dart';
+import '../../core/overlay/android_overlay_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -93,6 +94,33 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+
+  Future<void> _toggleOverlay() async {
+    final overlay = const AndroidOverlayService();
+    final supported = await overlay.isSupported();
+    if (!supported || !mounted) {
+      if (mounted) setState(() => status = 'El overlay no está disponible en este dispositivo.');
+      return;
+    }
+
+    if (await overlay.hasPermission()) {
+      try {
+        await overlay.showRaphael();
+        if (mounted) setState(() => status = 'Raphael flotante activado.');
+      } catch (_) {
+        if (mounted) setState(() => status = 'No se pudo activar Raphael.');
+      }
+      return;
+    }
+
+    final openedSettings = await overlay.requestPermission();
+    if (mounted) {
+      setState(() => status = openedSettings
+          ? 'Concede el permiso de superposición y vuelve a la app para activarlo.'
+          : 'No se pudo abrir el permiso de superposición.');
+    }
+  }
+
   Future<void> _clear() async {
     final repo = repository;
     if (repo == null || saving) return;
@@ -143,6 +171,17 @@ class _SettingsPageState extends State<SettingsPage> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          Text(
+            'Raphael flotante',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: saving ? null : _toggleOverlay,
+            icon: const Icon(Icons.picture_in_picture_alt_outlined),
+            label: const Text('Activar Raphael sobre otras apps'),
+          ),
+          const SizedBox(height: 28),
           Text(
             'Proveedor de IA',
             style: Theme.of(context).textTheme.titleLarge,
