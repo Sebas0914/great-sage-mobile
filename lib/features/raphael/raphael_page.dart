@@ -1,48 +1,56 @@
 import 'package:flutter/material.dart';
-import 'raphael_controller.dart';
+import 'raphael_runtime.dart';
 import 'raphael_state.dart';
 import 'raphael_widget.dart';
 
-class RaphaelPage extends StatefulWidget {
+class RaphaelPage extends StatelessWidget {
   const RaphaelPage({super.key});
-  @override State<RaphaelPage> createState() => _RaphaelPageState();
-}
-
-class _RaphaelPageState extends State<RaphaelPage> {
-  late final RaphaelController controller;
-  @override void initState() { super.initState(); controller = RaphaelController(); }
-  @override void dispose() { controller.dispose(); super.dispose(); }
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: controller,
-    builder: (context, _) => Scaffold(
-      appBar: AppBar(title: const Text('Raphael')),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (controller.visible) RaphaelWidget(mood: controller.mood),
-            const SizedBox(height: 28),
-            Text('Estado: ' + controller.mood.name),
-            const SizedBox(height: 24),
-            Wrap(
-              spacing: 8,
-              children: RaphaelMood.values.map((mood) => ChoiceChip(
-                label: Text(mood.name),
-                selected: controller.mood == mood,
-                onSelected: (_) => controller.setMood(mood),
-              )).toList(),
+  Widget build(BuildContext context) {
+    final runtime = RaphaelRuntime.instance;
+    return AnimatedBuilder(
+      animation: runtime,
+      builder: (context, _) => Scaffold(
+        appBar: AppBar(title: const Text('Raphael')),
+        body: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                RaphaelWidget(mood: runtime.mood, size: 220),
+                const SizedBox(height: 24),
+                Text(
+                  'Estado: ${runtime.mood.name}',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 18),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: RaphaelMood.values.map((mood) => ChoiceChip(
+                    label: Text(mood.name),
+                    selected: runtime.mood == mood,
+                    onSelected: (_) => runtime.setMood(mood),
+                  )).toList(),
+                ),
+                const SizedBox(height: 22),
+                FilledButton.icon(
+                  onPressed: () => runtime.setFloating(!runtime.floating),
+                  icon: Icon(runtime.floating
+                      ? Icons.visibility_off
+                      : Icons.picture_in_picture_alt_outlined),
+                  label: Text(runtime.floating
+                      ? 'Desactivar Raphael flotante'
+                      : 'Activar Raphael flotante'),
+                ),
+              ],
             ),
-            const SizedBox(height: 20),
-            OutlinedButton.icon(
-              onPressed: controller.toggleVisible,
-              icon: Icon(controller.visible ? Icons.visibility_off : Icons.visibility),
-              label: Text(controller.visible ? 'Ocultar Raphael' : 'Mostrar Raphael'),
-            ),
-          ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
