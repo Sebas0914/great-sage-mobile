@@ -214,7 +214,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      return const Scaffold(
+      return Scaffold(
         appBar: AppBar(title: const Text('Configuración')),
         body: Center(child: CircularProgressIndicator()),
       );
