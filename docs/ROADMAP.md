@@ -6,14 +6,14 @@
 - [x] Raphael visual component
 - [x] Chat interface
 - [x] Assistant/provider abstraction
-- [ ] Local persistence
+- [x] Local persistence
 - [x] Text-to-speech
 - [x] Speech-to-text
 - [ ] Android microphone and speech permissions
 - [ ] Android floating overlay
 - [ ] Overlay lifecycle and permissions
-- [ ] AI provider implementations
+- [x] AI provider implementation (OpenAI-compatible)
 - [ ] Offline-capable features
-- [ ] App settings
+- [x] App settings
 - [ ] Release signing
 - [x] APK build workflow
