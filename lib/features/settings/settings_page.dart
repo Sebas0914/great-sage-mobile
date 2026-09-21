@@ -161,7 +161,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               DropdownMenuItem(
                 value: AssistantProviderType.openAiCompatible,
-                child: Text('Compatible con OpenAI (próximamente)'),
+                child: Text('Compatible con OpenAI'),
               ),
             ],
             onChanged: saving
