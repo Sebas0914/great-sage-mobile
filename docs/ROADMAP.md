@@ -3,16 +3,17 @@
 - [x] Repository initialized
 - [x] Flutter manifest and application shell
 - [x] Architecture documented
-- [ ] Raphael visual component
-- [ ] Chat interface
-- [ ] Assistant/provider abstraction
+- [x] Raphael visual component
+- [x] Chat interface
+- [x] Assistant/provider abstraction
 - [ ] Local persistence
-- [ ] Text-to-speech
-- [ ] Speech-to-text
+- [x] Text-to-speech
+- [x] Speech-to-text
+- [ ] Android microphone and speech permissions
 - [ ] Android floating overlay
 - [ ] Overlay lifecycle and permissions
 - [ ] AI provider implementations
 - [ ] Offline-capable features
 - [ ] App settings
 - [ ] Release signing
-- [ ] APK build
+- [x] APK build workflow
