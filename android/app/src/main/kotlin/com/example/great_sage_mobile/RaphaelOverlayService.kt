@@ -7,12 +7,10 @@ import android.app.Service
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
-import android.view.MotionEvent
-import android.view.animation.AlphaAnimation
-import android.view.animation.Animation
 import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
@@ -23,6 +21,7 @@ class RaphaelOverlayService : Service() {
     private var overlayView: View? = null
     private var overlayParams: WindowManager.LayoutParams? = null
     private var label: TextView? = null
+    private var core: View? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -41,38 +40,107 @@ class RaphaelOverlayService : Service() {
 
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
 
-        val size = (96 * resources.displayMetrics.density).toInt()
+        val density = resources.displayMetrics.density
+        val size = (104 * density).toInt()
+
         val container = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.argb(220, 20, 24, 38))
-                setStroke(
-                    (2 * resources.displayMetrics.density).toInt(),
-                    Color.rgb(124, 99, 255)
-                )
+                setColor(Color.argb(235, 8, 12, 24))
+                setStroke((2 * density).toInt(), Color.rgb(124, 99, 255))
             }
-            elevation = 12f
-            setOnTouchListener(object : View.OnTouchListener {\n                private var downX = 0f\n                private var downY = 0f\n                private var startX = 0\n                private var startY = 0\n                private var moved = false\n\n                override fun onTouch(v: View, event: MotionEvent): Boolean {\n                    val params = overlayParams ?: return false\n                    when (event.actionMasked) {\n                        MotionEvent.ACTION_DOWN -> {\n                            downX = event.rawX\n                            downY = event.rawY\n                            startX = params.x\n                            startY = params.y\n                            moved = false\n                            return true\n                        }\n                        MotionEvent.ACTION_MOVE -> {\n                            val dx = (event.rawX - downX).toInt()\n                            val dy = (event.rawY - downY).toInt()\n                            if (kotlin.math.abs(dx) > 8 || kotlin.math.abs(dy) > 8) moved = true\n                            params.x = startX - dx\n                            params.y = startY + dy\n                            windowManager.updateViewLayout(v, params)\n                            return true\n                        }\n                        MotionEvent.ACTION_UP -> {\n                            if (!moved) {\n                                val launch = packageManager.getLaunchIntentForPackage(packageName)\n                                launch?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)\n                                if (launch != null) startActivity(launch)\n                            }\n                            return true\n                        }\n                    }\n                    return false\n                }\n            })\n            /* setOnClickListener kept as fallback for accessibility-capable click dispatch. */\n            setOnClickListener {
-                val launch = packageManager.getLaunchIntentForPackage(packageName)
-                launch?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                if (launch != null) startActivity(launch)
-            }
+            elevation = 16f
+            setOnTouchListener(object : View.OnTouchListener {
+                private var downX = 0f
+                private var downY = 0f
+                private var startX = 0
+                private var startY = 0
+                private var moved = false
+
+                override fun onTouch(v: View, event: MotionEvent): Boolean {
+                    val params = overlayParams ?: return false
+                    when (event.actionMasked) {
+                        MotionEvent.ACTION_DOWN -> {
+                            downX = event.rawX
+                            downY = event.rawY
+                            startX = params.x
+                            startY = params.y
+                            moved = false
+                            return true
+                        }
+                        MotionEvent.ACTION_MOVE -> {
+                            val dx = (event.rawX - downX).toInt()
+                            val dy = (event.rawY - downY).toInt()
+                            if (kotlin.math.abs(dx) > 8 || kotlin.math.abs(dy) > 8) moved = true
+                            params.x = startX - dx
+                            params.y = startY + dy
+                            windowManager.updateViewLayout(v, params)
+                            return true
+                        }
+                        MotionEvent.ACTION_UP -> {
+                            if (!moved) {
+                                val launch = packageManager.getLaunchIntentForPackage(packageName)
+                                launch?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                if (launch != null) startActivity(launch)
+                            }
+                            return true
+                        }
+                    }
+                    return false
+                }
+            })
         }
 
-        val label = TextView(this).apply {
+        val ring = View(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.TRANSPARENT)
+                setStroke((2 * density).toInt(), Color.rgb(72, 216, 255))
+            }
+            alpha = 0.55f
+        }
+        container.addView(
+            ring,
+            FrameLayout.LayoutParams(
+                (78 * density).toInt(),
+                (78 * density).toInt(),
+                Gravity.CENTER
+            )
+        )
+
+        val inner = FrameLayout(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.rgb(16, 20, 38))
+                setStroke((1 * density).toInt(), Color.rgb(156, 140, 255))
+            }
+        }
+        container.addView(
+            inner,
+            FrameLayout.LayoutParams(
+                (60 * density).toInt(),
+                (60 * density).toInt(),
+                Gravity.CENTER
+            )
+        )
+
+        val labelView = TextView(this).apply {
             text = "✦"
-            textSize = 34f
+            textSize = 27f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
             contentDescription = "Raphael"
         }
-        container.addView(
-            label,
+        inner.addView(
+            labelView,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
         )
+
+        label = labelView
+        core = inner
 
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -89,21 +157,74 @@ class RaphaelOverlayService : Service() {
             android.graphics.PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.END
-            x = (12 * resources.displayMetrics.density).toInt()
-            y = (72 * resources.displayMetrics.density).toInt()
+            x = (12 * density).toInt()
+            y = (72 * density).toInt()
         }
 
+        overlayParams = params
         windowManager.addView(container, params)
         overlayView = container
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {\n        intent?.getStringExtra("mood")?.let { updateMood(it) }\n        return START_STICKY\n    }\n\n    override fun onDestroy() {
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        intent?.getStringExtra("mood")?.let { updateMood(it) }
+        return START_STICKY
+    }
+
+    override fun onDestroy() {
         overlayView?.let { windowManager.removeView(it) }
         overlayView = null
+        overlayParams = null
+        label = null
+        core = null
         super.onDestroy()
     }
 
-    override fun onBind(intent: Intent?): IBinder? = null\n\n    private fun updateMood(mood: String) {\n        val view = label ?: return\n        val text = when (mood) {\n            "listening" -> "◉"\n            "thinking" -> "…"\n            "speaking" -> "♪"\n            "happy" -> "✦"\n            else -> "✦"\n        }\n        view.text = text\n        view.animate().cancel()\n        if (mood == "thinking" || mood == "speaking" || mood == "listening") {\n            view.animate().scaleX(1.12f).scaleY(1.12f).setDuration(350).withEndAction {\n                view.animate().scaleX(1f).scaleY(1f).setDuration(350).start()\n            }.start()\n        } else {\n            view.scaleX = 1f\n            view.scaleY = 1f\n        }\n    }
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun updateMood(mood: String) {
+        val view = label ?: return
+        val inner = core ?: return
+
+        val (symbol, color) = when (mood) {
+            "listening" -> "◉" to Color.rgb(72, 216, 255)
+            "thinking" -> "…" to Color.rgb(156, 140, 255)
+            "speaking" -> "≈" to Color.rgb(124, 255, 178)
+            "happy" -> "✦" to Color.rgb(255, 215, 106)
+            else -> "✦" to Color.rgb(140, 131, 255)
+        }
+
+        view.text = symbol
+        view.setTextColor(color)
+
+        (inner.background as? GradientDrawable)?.setStroke(
+            (1 * resources.displayMetrics.density).toInt(),
+            color
+        )
+
+        inner.animate().cancel()
+        if (mood == "neutral") {
+            inner.scaleX = 1f
+            inner.scaleY = 1f
+            inner.alpha = 1f
+            return
+        }
+
+        inner.animate()
+            .scaleX(1.12f)
+            .scaleY(1.12f)
+            .alpha(0.82f)
+            .setDuration(320)
+            .withEndAction {
+                inner.animate()
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .alpha(1f)
+                    .setDuration(320)
+                    .start()
+            }
+            .start()
+    }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
