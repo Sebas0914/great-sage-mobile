@@ -21,20 +21,12 @@ jobs:
       - name: Generate Android project
         run: flutter create . --platforms=android --project-name great_sage_mobile
 
-      - name: Configure microphone permission
+      - name: Restore GREAT SAGE Android integration
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          manifest = Path("android/app/src/main/AndroidManifest.xml")
-          text = manifest.read_text()
-          permission = '    <uses-permission android:name="android.permission.RECORD_AUDIO"/>'
-          if permission not in text:
-              text = text.replace(
-                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
-                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\\n' + permission
-              )
-          manifest.write_text(text)
-          PY
+          mkdir -p android/app/src/main/kotlin/com/example/great_sage_mobile
+          cp .github/android/MainActivity.kt android/app/src/main/kotlin/com/example/great_sage_mobile/MainActivity.kt
+          cp .github/android/RaphaelOverlayService.kt android/app/src/main/kotlin/com/example/great_sage_mobile/RaphaelOverlayService.kt
+          cp .github/android/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
 
       - name: Get dependencies
         run: flutter pub get
