@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/assistant/assistant_message.dart';
-import '../../core/assistant/local_demo_provider.dart';
+import '../../core/assistant/assistant_provider.dart';
+import '../../core/assistant/assistant_provider_factory.dart';
+import '../../core/assistant/assistant_settings_repository.dart';
 import '../../core/storage/chat_history_repository.dart';
 import '../../core/storage/shared_preferences_storage.dart';
 import '../../core/voice/device_voice_service.dart';
@@ -15,7 +17,8 @@ class ChatPage extends StatefulWidget {
 
 class _ChatPageState extends State<ChatPage> {
   final controller = TextEditingController();
-  final provider = const LocalDemoProvider();
+  AssistantProvider? provider;
+  bool loadingAssistant = true;
   final voice = DeviceVoiceService();
   final messages = <AssistantMessage>[];
 
@@ -32,6 +35,7 @@ class _ChatPageState extends State<ChatPage> {
   void initState() {
     super.initState();
     _loadHistory();
+    _loadAssistant();
   }
 
   @override
@@ -61,6 +65,29 @@ class _ChatPageState extends State<ChatPage> {
       setState(() {
         loadingHistory = false;
         voiceError = 'No se pudo cargar el historial local.';
+      });
+    }
+  }
+
+  Future<void> _loadAssistant() async {
+    try {
+      final storage = await SharedPreferencesStorage.create();
+      final settings = await AssistantSettingsRepository(storage).load();
+      final selectedProvider =
+          const AssistantProviderFactory().create(settings);
+      if (!mounted) return;
+
+      setState(() {
+        provider = selectedProvider;
+        loadingAssistant = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        loadingAssistant = false;
+        voiceError = error is FormatException
+            ? error.message
+            : 'No se pudo cargar el proveedor de IA.';
       });
     }
   }
@@ -115,11 +142,14 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> send() async {
     final value = controller.text.trim();
-    if (value.isEmpty || sending || loadingHistory) return;
+    if (value.isEmpty || sending || loadingHistory || loadingAssistant) return;
 
     if (listening) {
       await voice.stopListening();
     }
+
+    final assistant = provider;
+    if (assistant == null) return;
 
     controller.clear();
     setState(() {
@@ -137,7 +167,7 @@ class _ChatPageState extends State<ChatPage> {
     await _saveHistory();
 
     try {
-      final reply = await provider.sendMessage(
+      final reply = await assistant.sendMessage(
         text: value,
         history: List.unmodifiable(messages),
       );
@@ -268,7 +298,7 @@ class _ChatPageState extends State<ChatPage> {
               const SizedBox(width: 8),
               const Text('GREAT SAGE'),
               const SizedBox(width: 10),
-              if (loadingHistory)
+              if (loadingHistory || loadingAssistant)
                 const SizedBox(
                   width: 14,
                   height: 14,
@@ -325,7 +355,7 @@ class _ChatPageState extends State<ChatPage> {
                 ),
               ),
             Expanded(
-              child: loadingHistory
+              child: loadingHistory || loadingAssistant
                   ? const Center(child: CircularProgressIndicator())
                   : messages.isEmpty
                       ? const Center(child: Text('Habla con GREAT SAGE'))
@@ -362,7 +392,8 @@ class _ChatPageState extends State<ChatPage> {
                           : 'Hablar con GREAT SAGE',
                       onPressed: sending ||
                               voiceAutoSubmitting ||
-                              loadingHistory
+                              loadingHistory ||
+                              loadingAssistant
                           ? null
                           : toggleListening,
                       icon: Icon(
@@ -374,7 +405,7 @@ class _ChatPageState extends State<ChatPage> {
                         controller: controller,
                         minLines: 1,
                         maxLines: 4,
-                        enabled: !loadingHistory && !voiceAutoSubmitting,
+                        enabled: !loadingHistory && !loadingAssistant && !voiceAutoSubmitting,
                         onSubmitted: (_) => send(),
                         decoration: InputDecoration(
                           hintText: listening
@@ -387,7 +418,8 @@ class _ChatPageState extends State<ChatPage> {
                       tooltip: 'Enviar',
                       onPressed: sending ||
                               voiceAutoSubmitting ||
-                              loadingHistory
+                              loadingHistory ||
+                              loadingAssistant
                           ? null
                           : send,
                       icon: const Icon(Icons.send),
