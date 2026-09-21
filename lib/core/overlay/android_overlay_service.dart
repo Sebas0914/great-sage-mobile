@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 
+import '../../features/raphael/raphael_state.dart';
 import 'overlay_service.dart';
 
 class AndroidOverlayService implements OverlayService {
@@ -41,5 +42,9 @@ class AndroidOverlayService implements OverlayService {
   @override
   Future<void> hideRaphael() async {
     await _channel.invokeMethod<void>('hide');
+  }
+
+  Future<void> setMood(RaphaelMood mood) async {
+    await _channel.invokeMethod<void>('setMood', mood.name);
   }
 }
