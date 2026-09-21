@@ -7,6 +7,7 @@ import '../../core/storage/chat_history_repository.dart';
 import '../../core/storage/shared_preferences_storage.dart';
 import '../../core/voice/device_voice_service.dart';
 import '../raphael/raphael_state.dart';
+import '../raphael/raphael_runtime.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -30,6 +31,12 @@ class _ChatPageState extends State<ChatPage> {
   bool voiceAutoSubmitting = false;
   RaphaelMood mood = RaphaelMood.neutral;
   String? voiceError;
+  final raphael = RaphaelRuntime.instance;
+
+  Future<void> _setMood(RaphaelMood value) async {
+    if (mounted) setState(() => mood = value);
+    await raphael.setMood(value);
+  }
 
   @override
   void initState() {
@@ -163,6 +170,7 @@ class _ChatPageState extends State<ChatPage> {
       ));
       sending = true;
       mood = RaphaelMood.thinking;
+      await raphael.setMood(RaphaelMood.thinking);
     });
     await _saveHistory();
 
@@ -178,6 +186,7 @@ class _ChatPageState extends State<ChatPage> {
         sending = false;
         speaking = true;
         mood = RaphaelMood.speaking;
+        await raphael.setMood(RaphaelMood.speaking);
       });
       await _saveHistory();
 
@@ -187,6 +196,10 @@ class _ChatPageState extends State<ChatPage> {
       setState(() {
         speaking = false;
         mood = RaphaelMood.neutral;
+    await raphael.setMood(RaphaelMood.neutral);
+      await raphael.setMood(RaphaelMood.neutral);
+        await raphael.setMood(RaphaelMood.neutral);
+        await raphael.setMood(RaphaelMood.neutral);
       });
     } catch (_) {
       if (!mounted) return;
@@ -248,6 +261,7 @@ class _ChatPageState extends State<ChatPage> {
           setState(() {
             listening = false;
             mood = RaphaelMood.neutral;
+          await raphael.setMood(RaphaelMood.neutral);
           });
 
           if (text.trim().isNotEmpty) {
@@ -259,6 +273,8 @@ class _ChatPageState extends State<ChatPage> {
         setState(() {
           listening = true;
           mood = RaphaelMood.listening;
+        await raphael.setMood(RaphaelMood.listening);
+          await raphael.setMood(RaphaelMood.listening);
         });
       },
     );
