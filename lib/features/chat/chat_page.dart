@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/assistant/assistant_message.dart';
-import '../../core/assistant/assistant_provider.dart';
 import '../../core/assistant/local_demo_provider.dart';
+import '../../core/voice/device_voice_service.dart';
 import '../raphael/raphael_state.dart';
 
 class ChatPage extends StatefulWidget {
@@ -14,12 +14,16 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final controller = TextEditingController();
   final provider = const LocalDemoProvider();
+  final voice = DeviceVoiceService();
   final messages = <AssistantMessage>[];
+
   bool sending = false;
+  bool speaking = false;
   RaphaelMood mood = RaphaelMood.neutral;
 
   @override
   void dispose() {
+    voice.stopSpeaking();
     controller.dispose();
     super.dispose();
   }
@@ -45,18 +49,38 @@ class _ChatPageState extends State<ChatPage> {
         history: List.unmodifiable(messages),
       );
       if (!mounted) return;
+
       setState(() {
         messages.add(reply);
         sending = false;
+        speaking = true;
         mood = RaphaelMood.speaking;
+      });
+
+      await voice.speak(reply.text);
+      if (!mounted) return;
+
+      setState(() {
+        speaking = false;
+        mood = RaphaelMood.neutral;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         sending = false;
+        speaking = false;
         mood = RaphaelMood.neutral;
       });
     }
+  }
+
+  Future<void> stopVoice() async {
+    await voice.stopSpeaking();
+    if (!mounted) return;
+    setState(() {
+      speaking = false;
+      mood = RaphaelMood.neutral;
+    });
   }
 
   @override
@@ -74,6 +98,14 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ],
           ),
+          actions: [
+            if (speaking)
+              IconButton(
+                tooltip: 'Detener voz',
+                onPressed: stopVoice,
+                icon: const Icon(Icons.stop_circle_outlined),
+              ),
+          ],
         ),
         body: Column(
           children: [
@@ -83,7 +115,7 @@ class _ChatPageState extends State<ChatPage> {
                 child: Text(
                   mood == RaphaelMood.thinking
                       ? 'Raphael está pensando…'
-                      : 'Raphael está respondiendo…',
+                      : 'Raphael está hablando…',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
