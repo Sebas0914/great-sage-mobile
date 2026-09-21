@@ -20,6 +20,7 @@ class _ChatPageState extends State<ChatPage> {
   bool sending = false;
   bool listening = false;
   bool speaking = false;
+  bool voiceAutoSubmitting = false;
   RaphaelMood mood = RaphaelMood.neutral;
   String? voiceError;
 
@@ -42,6 +43,7 @@ class _ChatPageState extends State<ChatPage> {
     controller.clear();
     setState(() {
       listening = false;
+      voiceAutoSubmitting = false;
       voiceError = null;
       messages.add(AssistantMessage(
         role: MessageRole.user,
@@ -78,13 +80,35 @@ class _ChatPageState extends State<ChatPage> {
       setState(() {
         sending = false;
         speaking = false;
+        voiceAutoSubmitting = false;
         mood = RaphaelMood.neutral;
       });
     }
   }
 
+  Future<void> submitVoiceResult(String text) async {
+    final value = text.trim();
+    if (value.isEmpty || sending || voiceAutoSubmitting) return;
+
+    voiceAutoSubmitting = true;
+    controller.text = value;
+    controller.selection = TextSelection.collapsed(
+      offset: controller.text.length,
+    );
+
+    await voice.stopListening();
+    if (!mounted) return;
+
+    setState(() {
+      listening = false;
+      mood = RaphaelMood.neutral;
+    });
+
+    await send();
+  }
+
   Future<void> toggleListening() async {
-    if (sending) return;
+    if (sending || voiceAutoSubmitting) return;
 
     if (listening) {
       await voice.stopListening();
@@ -99,18 +123,27 @@ class _ChatPageState extends State<ChatPage> {
     final started = await voice.startListening(
       onResult: (text, isFinal) {
         if (!mounted) return;
-        setState(() {
-          controller.text = text;
-          controller.selection = TextSelection.collapsed(
-            offset: controller.text.length,
-          );
-          if (isFinal) {
+
+        controller.text = text;
+        controller.selection = TextSelection.collapsed(
+          offset: controller.text.length,
+        );
+
+        if (isFinal) {
+          setState(() {
             listening = false;
             mood = RaphaelMood.neutral;
-          } else {
-            listening = true;
-            mood = RaphaelMood.listening;
+          });
+
+          if (text.trim().isNotEmpty) {
+            Future<void>.microtask(() => submitVoiceResult(text));
           }
+          return;
+        }
+
+        setState(() {
+          listening = true;
+          mood = RaphaelMood.listening;
         });
       },
     );
@@ -179,6 +212,11 @@ class _ChatPageState extends State<ChatPage> {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
+            if (voiceAutoSubmitting)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Text('Procesando lo que dijiste…'),
+              ),
             if (voiceError != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -223,7 +261,9 @@ class _ChatPageState extends State<ChatPage> {
                       tooltip: listening
                           ? 'Detener micrófono'
                           : 'Hablar con GREAT SAGE',
-                      onPressed: sending ? null : toggleListening,
+                      onPressed: sending || voiceAutoSubmitting
+                          ? null
+                          : toggleListening,
                       icon: Icon(
                         listening ? Icons.mic : Icons.mic_none,
                       ),
@@ -243,7 +283,7 @@ class _ChatPageState extends State<ChatPage> {
                     ),
                     IconButton(
                       tooltip: 'Enviar',
-                      onPressed: sending ? null : send,
+                      onPressed: sending || voiceAutoSubmitting ? null : send,
                       icon: const Icon(Icons.send),
                     ),
                   ],
