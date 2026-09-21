@@ -1,6 +1,7 @@
 import 'assistant_provider.dart';
 import 'assistant_settings.dart';
 import 'local_demo_provider.dart';
+import 'open_ai_compatible_provider.dart';
 
 class AssistantProviderFactory {
   const AssistantProviderFactory();
@@ -10,9 +11,7 @@ class AssistantProviderFactory {
       case AssistantProviderType.localDemo:
         return const LocalDemoProvider();
       case AssistantProviderType.openAiCompatible:
-        throw UnsupportedError(
-          'El proveedor compatible con OpenAI todavía no está implementado.',
-        );
+        return OpenAiCompatibleProvider(settings: settings);
     }
   }
 }
