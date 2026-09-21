@@ -13,7 +13,7 @@ class SettingsPage extends StatefulWidget {
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver {
   final baseUrlController = TextEditingController();
   final apiKeyController = TextEditingController();
   final modelController = TextEditingController();
@@ -32,15 +32,42 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     baseUrlController.dispose();
     apiKeyController.dispose();
     modelController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshOverlayPermission();
+    }
+  }
+
+  Future<void> _refreshOverlayPermission() async {
+    try {
+      final active = await overlay.hasPermission();
+      if (!mounted) return;
+      setState(() {
+        overlayActive = active && raphael.floating;
+        if (active && raphael.floating) {
+          status = 'Raphael flotante activado.';
+        }
+      });
+    } catch (_) {}
   }
 
   Future<void> _load() async {
