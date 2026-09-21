@@ -18,11 +18,14 @@ class _ChatPageState extends State<ChatPage> {
   final messages = <AssistantMessage>[];
 
   bool sending = false;
+  bool listening = false;
   bool speaking = false;
   RaphaelMood mood = RaphaelMood.neutral;
+  String? voiceError;
 
   @override
   void dispose() {
+    voice.stopListening();
     voice.stopSpeaking();
     controller.dispose();
     super.dispose();
@@ -32,8 +35,14 @@ class _ChatPageState extends State<ChatPage> {
     final value = controller.text.trim();
     if (value.isEmpty || sending) return;
 
+    if (listening) {
+      await voice.stopListening();
+    }
+
     controller.clear();
     setState(() {
+      listening = false;
+      voiceError = null;
       messages.add(AssistantMessage(
         role: MessageRole.user,
         text: value,
@@ -69,6 +78,55 @@ class _ChatPageState extends State<ChatPage> {
       setState(() {
         sending = false;
         speaking = false;
+        mood = RaphaelMood.neutral;
+      });
+    }
+  }
+
+  Future<void> toggleListening() async {
+    if (sending) return;
+
+    if (listening) {
+      await voice.stopListening();
+      if (!mounted) return;
+      setState(() {
+        listening = false;
+        mood = RaphaelMood.neutral;
+      });
+      return;
+    }
+
+    final started = await voice.startListening(
+      onResult: (text, isFinal) {
+        if (!mounted) return;
+        setState(() {
+          controller.text = text;
+          controller.selection = TextSelection.collapsed(
+            offset: controller.text.length,
+          );
+          if (isFinal) {
+            listening = false;
+            mood = RaphaelMood.neutral;
+          } else {
+            listening = true;
+            mood = RaphaelMood.listening;
+          }
+        });
+      },
+    );
+
+    if (!mounted) return;
+
+    if (started) {
+      setState(() {
+        listening = true;
+        voiceError = null;
+        mood = RaphaelMood.listening;
+      });
+    } else {
+      setState(() {
+        listening = false;
+        voiceError = 'No se pudo iniciar el reconocimiento de voz.';
         mood = RaphaelMood.neutral;
       });
     }
@@ -115,8 +173,20 @@ class _ChatPageState extends State<ChatPage> {
                 child: Text(
                   mood == RaphaelMood.thinking
                       ? 'Raphael está pensando…'
-                      : 'Raphael está hablando…',
+                      : mood == RaphaelMood.listening
+                          ? 'Raphael está escuchando…'
+                          : 'Raphael está hablando…',
                   style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            if (voiceError != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Text(
+                  voiceError!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
                 ),
               ),
             Expanded(
@@ -145,19 +215,34 @@ class _ChatPageState extends State<ChatPage> {
             if (sending) const LinearProgressIndicator(minHeight: 2),
             SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
+                    IconButton(
+                      tooltip: listening
+                          ? 'Detener micrófono'
+                          : 'Hablar con GREAT SAGE',
+                      onPressed: sending ? null : toggleListening,
+                      icon: Icon(
+                        listening ? Icons.mic : Icons.mic_none,
+                      ),
+                    ),
                     Expanded(
                       child: TextField(
                         controller: controller,
+                        minLines: 1,
+                        maxLines: 4,
                         onSubmitted: (_) => send(),
-                        decoration: const InputDecoration(
-                          hintText: 'Escribe un mensaje',
+                        decoration: InputDecoration(
+                          hintText: listening
+                              ? 'Escuchando…'
+                              : 'Escribe un mensaje',
                         ),
                       ),
                     ),
                     IconButton(
+                      tooltip: 'Enviar',
                       onPressed: sending ? null : send,
                       icon: const Icon(Icons.send),
                     ),
