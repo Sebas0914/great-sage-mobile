@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <application
         android:label="GREAT SAGE Mobile"
         android:name="${applicationName}"
@@ -25,7 +27,12 @@
         <service
             android:name=".RaphaelOverlayService"
             android:exported="false"
-            android:stopWithTask="false" />
+            android:stopWithTask="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Floating Raphael assistant overlay" />
+        </service>
         <meta-data
           android:name="flutterEmbedding"
           android:value="2" />
