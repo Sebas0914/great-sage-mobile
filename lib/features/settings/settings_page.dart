@@ -21,8 +21,11 @@ class _SettingsPageState extends State<SettingsPage> {
   AssistantProviderType provider = AssistantProviderType.localDemo;
   bool loading = true;
   bool saving = false;
+  bool overlayActive = false;
   bool obscureApiKey = true;
   String? status;
+
+  final overlay = const AndroidOverlayService();
 
   @override
   void initState() {
@@ -43,6 +46,7 @@ class _SettingsPageState extends State<SettingsPage> {
       final storage = await SharedPreferencesStorage.create();
       final repo = AssistantSettingsRepository(storage);
       final settings = await repo.load();
+      final active = await overlay.hasPermission();
       if (!mounted) return;
 
       setState(() {
@@ -51,6 +55,7 @@ class _SettingsPageState extends State<SettingsPage> {
         baseUrlController.text = settings.apiBaseUrl;
         apiKeyController.text = settings.apiKey;
         modelController.text = settings.model;
+        overlayActive = active;
         loading = false;
       });
     } catch (_) {
@@ -94,19 +99,39 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-
   Future<void> _toggleOverlay() async {
-    final overlay = const AndroidOverlayService();
     final supported = await overlay.isSupported();
     if (!supported || !mounted) {
-      if (mounted) setState(() => status = 'El overlay no está disponible en este dispositivo.');
+      if (mounted) {
+        setState(() => status = 'El overlay no está disponible en este dispositivo.');
+      }
+      return;
+    }
+
+    if (overlayActive) {
+      try {
+        await overlay.hideRaphael();
+        if (mounted) {
+          setState(() {
+            overlayActive = false;
+            status = 'Raphael flotante desactivado.';
+          });
+        }
+      } catch (_) {
+        if (mounted) setState(() => status = 'No se pudo desactivar Raphael.');
+      }
       return;
     }
 
     if (await overlay.hasPermission()) {
       try {
         await overlay.showRaphael();
-        if (mounted) setState(() => status = 'Raphael flotante activado.');
+        if (mounted) {
+          setState(() {
+            overlayActive = true;
+            status = 'Raphael flotante activado.';
+          });
+        }
       } catch (_) {
         if (mounted) setState(() => status = 'No se pudo activar Raphael.');
       }
@@ -176,10 +201,12 @@ class _SettingsPageState extends State<SettingsPage> {
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: saving ? null : _toggleOverlay,
-            icon: const Icon(Icons.picture_in_picture_alt_outlined),
-            label: const Text('Activar Raphael sobre otras apps'),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(overlayActive ? 'Raphael está activo' : 'Raphael está desactivado'),
+            subtitle: const Text('Mostrar a Raphael sobre otras aplicaciones'),
+            value: overlayActive,
+            onChanged: saving ? null : (_) => _toggleOverlay(),
           ),
           const SizedBox(height: 28),
           Text(
@@ -238,18 +265,14 @@ class _SettingsPageState extends State<SettingsPage> {
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
                   tooltip: obscureApiKey ? 'Mostrar clave' : 'Ocultar clave',
-                  onPressed: () =>
-                      setState(() => obscureApiKey = !obscureApiKey),
-                  icon: Icon(
-                    obscureApiKey ? Icons.visibility : Icons.visibility_off,
-                  ),
+                  onPressed: () => setState(() => obscureApiKey = !obscureApiKey),
+                  icon: Icon(obscureApiKey ? Icons.visibility : Icons.visibility_off),
                 ),
               ),
             ),
             const SizedBox(height: 12),
             const Text(
-              'La clave se guarda localmente. Para una versión de producción '
-              'se recomienda usar almacenamiento seguro del sistema.',
+              'La clave se guarda en el almacenamiento seguro del dispositivo.',
             ),
           ],
           const SizedBox(height: 28),
