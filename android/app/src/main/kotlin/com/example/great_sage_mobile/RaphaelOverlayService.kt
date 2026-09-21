@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
+import android.view.MotionEvent
 import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
@@ -18,6 +19,7 @@ import android.widget.TextView
 class RaphaelOverlayService : Service() {
     private lateinit var windowManager: WindowManager
     private var overlayView: View? = null
+    private var overlayParams: WindowManager.LayoutParams? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -47,7 +49,7 @@ class RaphaelOverlayService : Service() {
                 )
             }
             elevation = 12f
-            setOnClickListener {
+            setOnTouchListener(object : View.OnTouchListener {\n                private var downX = 0f\n                private var downY = 0f\n                private var startX = 0\n                private var startY = 0\n                private var moved = false\n\n                override fun onTouch(v: View, event: MotionEvent): Boolean {\n                    val params = overlayParams ?: return false\n                    when (event.actionMasked) {\n                        MotionEvent.ACTION_DOWN -> {\n                            downX = event.rawX\n                            downY = event.rawY\n                            startX = params.x\n                            startY = params.y\n                            moved = false\n                            return true\n                        }\n                        MotionEvent.ACTION_MOVE -> {\n                            val dx = (event.rawX - downX).toInt()\n                            val dy = (event.rawY - downY).toInt()\n                            if (kotlin.math.abs(dx) > 8 || kotlin.math.abs(dy) > 8) moved = true\n                            params.x = startX - dx\n                            params.y = startY + dy\n                            windowManager.updateViewLayout(v, params)\n                            return true\n                        }\n                        MotionEvent.ACTION_UP -> {\n                            if (!moved) {\n                                val launch = packageManager.getLaunchIntentForPackage(packageName)\n                                launch?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)\n                                if (launch != null) startActivity(launch)\n                            }\n                            return true\n                        }\n                    }\n                    return false\n                }\n            })\n            /* setOnClickListener kept as fallback for accessibility-capable click dispatch. */\n            setOnClickListener {
                 val launch = packageManager.getLaunchIntentForPackage(packageName)
                 launch?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 if (launch != null) startActivity(launch)
