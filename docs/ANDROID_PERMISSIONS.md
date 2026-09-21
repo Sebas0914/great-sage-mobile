@@ -1,19 +1,28 @@
 # Android permissions
 
-GREAT SAGE Mobile uses the device microphone for speech-to-text.
+GREAT SAGE Mobile uses the device microphone for speech-to-text and can show Raphael as a floating overlay.
 
-The Android application must declare:
+## Microphone
+
+The Android application declares:
 
 - `android.permission.RECORD_AUDIO`
 
-On Android, microphone access is a dangerous permission and must also be requested at runtime before recording.
-
-The speech recognition implementation should only start after the user explicitly taps the microphone control.
+Microphone access must also be granted at runtime. Speech recognition is started only after the user taps the microphone control.
 
 ## Text-to-speech
 
 Text-to-speech playback does not require microphone permission. The app uses the Android TTS engine through `flutter_tts`.
 
-## CI note
+## Floating overlay
 
-The repository currently generates the Android platform project during GitHub Actions. The manifest and runtime permission wiring will be added to the generated Android project when the Android platform layer is committed.
+Raphael uses:
+
+- `android.permission.SYSTEM_ALERT_WINDOW` for drawing over other apps.
+- A foreground service with `specialUse` so Android can keep the overlay service running.
+
+The user must explicitly grant the "display over other apps" permission in Android settings before Raphael can appear above other applications.
+
+The overlay also uses a foreground-service notification while active.
+
+These Android-specific capabilities are implemented behind the Flutter `OverlayService` interface, so the rest of the app does not depend directly on Android APIs.
