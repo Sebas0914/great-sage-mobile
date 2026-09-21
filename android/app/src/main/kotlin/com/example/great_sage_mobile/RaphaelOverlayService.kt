@@ -8,6 +8,8 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.view.MotionEvent
+import android.view.animation.AlphaAnimation
+import android.view.animation.Animation
 import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
@@ -20,6 +22,7 @@ class RaphaelOverlayService : Service() {
     private lateinit var windowManager: WindowManager
     private var overlayView: View? = null
     private var overlayParams: WindowManager.LayoutParams? = null
+    private var label: TextView? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -94,13 +97,13 @@ class RaphaelOverlayService : Service() {
         overlayView = container
     }
 
-    override fun onDestroy() {
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {\n        intent?.getStringExtra("mood")?.let { updateMood(it) }\n        return START_STICKY\n    }\n\n    override fun onDestroy() {
         overlayView?.let { windowManager.removeView(it) }
         overlayView = null
         super.onDestroy()
     }
 
-    override fun onBind(intent: Intent?): IBinder? = null
+    override fun onBind(intent: Intent?): IBinder? = null\n\n    private fun updateMood(mood: String) {\n        val view = label ?: return\n        val text = when (mood) {\n            "listening" -> "◉"\n            "thinking" -> "…"\n            "speaking" -> "♪"\n            "happy" -> "✦"\n            else -> "✦"\n        }\n        view.text = text\n        view.animate().cancel()\n        if (mood == "thinking" || mood == "speaking" || mood == "listening") {\n            view.animate().scaleX(1.12f).scaleY(1.12f).setDuration(350).withEndAction {\n                view.animate().scaleX(1f).scaleY(1f).setDuration(350).start()\n            }.start()\n        } else {\n            view.scaleX = 1f\n            view.scaleY = 1f\n        }\n    }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
