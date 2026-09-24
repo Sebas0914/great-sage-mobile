@@ -7,6 +7,7 @@ import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import org.json.JSONObject
 
 class MainActivity : FlutterActivity() {
     private val channelName = "great_sage_mobile/overlay"
@@ -33,7 +34,7 @@ class MainActivity : FlutterActivity() {
                     }
                     "executeAutomation" -> {
                         val service = DeviceAutomationService.instance
-                        val plan = call.arguments?.toString() ?: "{\"actions\":[]}"
+                        val plan = (call.arguments as? Map<*, *>)?.let { JSONObject(it).toString() } ?: "{\"actions\":[]}"
                         if (service == null) {
                             result.success(false)
                         } else {
