@@ -30,6 +30,25 @@ jobs:
           cp .github/android/RaphaelOverlayService.kt android/app/src/main/kotlin/com/example/great_sage_mobile/RaphaelOverlayService.kt
           cp .github/android/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
 
+      - name: Restore GREAT SAGE icon
+        run: |
+          python3 -m pip install --disable-pip-version-check -q pillow
+          curl -L --fail --retry 3 -o /tmp/great_sage_icon.ico https://raw.githubusercontent.com/Sebas0914/Great-Sage/main/icon.ico
+          python3 - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          src = Image.open('/tmp/great_sage_icon.ico')
+          frames = []
+          for i in range(getattr(src, 'n_frames', 1)):
+              src.seek(i)
+              frames.append(src.copy().convert('RGBA'))
+          best = max(frames, key=lambda im: im.width * im.height)
+          out = Path('android/app/src/main/res/drawable/great_sage_icon.png')
+          out.parent.mkdir(parents=True, exist_ok=True)
+          best.save(out, format='PNG', optimize=True)
+          print('Using GREAT SAGE source icon: ' + str(best.size))
+          PY
+
       - name: Get dependencies
         run: flutter pub get
 

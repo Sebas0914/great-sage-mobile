@@ -6,12 +6,12 @@ import 'overlay_service.dart';
 class AndroidOverlayService implements OverlayService {
   const AndroidOverlayService();
 
-  static const _channel = MethodChannel('great_sage_mobile/overlay');
+  static const channel = MethodChannel('great_sage_mobile/overlay');
 
   @override
   Future<bool> isSupported() async {
     try {
-      return await _channel.invokeMethod<bool>('isSupported') ?? false;
+      return await channel.invokeMethod<bool>('isSupported') ?? false;
     } on PlatformException {
       return false;
     }
@@ -19,7 +19,7 @@ class AndroidOverlayService implements OverlayService {
 
   Future<bool> hasPermission() async {
     try {
-      return await _channel.invokeMethod<bool>('hasPermission') ?? false;
+      return await channel.invokeMethod<bool>('hasPermission') ?? false;
     } on PlatformException {
       return false;
     }
@@ -28,7 +28,7 @@ class AndroidOverlayService implements OverlayService {
   @override
   Future<bool> requestPermission() async {
     try {
-      return await _channel.invokeMethod<bool>('requestPermission') ?? false;
+      return await channel.invokeMethod<bool>('requestPermission') ?? false;
     } on PlatformException {
       return false;
     }
@@ -36,15 +36,15 @@ class AndroidOverlayService implements OverlayService {
 
   @override
   Future<void> showRaphael() async {
-    await _channel.invokeMethod<void>('show');
+    await channel.invokeMethod<void>('show');
   }
 
   @override
   Future<void> hideRaphael() async {
-    await _channel.invokeMethod<void>('hide');
+    await channel.invokeMethod<void>('hide');
   }
 
   Future<void> setMood(RaphaelMood mood) async {
-    await _channel.invokeMethod<void>('setMood', mood.name);
+    await channel.invokeMethod<void>('setMood', mood.name);
   }
 }

@@ -8,7 +8,7 @@
     <application
         android:label="GREAT SAGE Mobile"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@drawable/great_sage_icon">
         <activity
             android:name=".MainActivity"
             android:exported="true"
