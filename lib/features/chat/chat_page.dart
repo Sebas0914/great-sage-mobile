@@ -146,7 +146,7 @@ class _ChatPageState extends State<ChatPage> {
       // The chat/text channel stays Spanish. Voice gets its own Japanese
       // translation so neither representation overwrites the other.
       var spokenText = reply.text;
-      final translator = assistant is SpeechTranslationProvider ? assistant : null;
+      final translator = assistant is SpeechTranslationProvider ? assistant as SpeechTranslationProvider : null;
       if (translator != null) {
         try {
           spokenText = await translator.translateForJapaneseSpeech(reply.text);
