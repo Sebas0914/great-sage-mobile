@@ -28,6 +28,10 @@ jobs:
           mkdir -p android/app/src/main/kotlin/com/example/great_sage_mobile
           cp .github/android/MainActivity.kt android/app/src/main/kotlin/com/example/great_sage_mobile/MainActivity.kt
           cp .github/android/RaphaelOverlayService.kt android/app/src/main/kotlin/com/example/great_sage_mobile/RaphaelOverlayService.kt
+          cp .github/android/DeviceAutomationService.kt android/app/src/main/kotlin/com/example/great_sage_mobile/DeviceAutomationService.kt
+          mkdir -p android/app/src/main/res/xml
+          cp .github/android/accessibility_service_config.xml android/app/src/main/res/xml/accessibility_service_config.xml
+          cp .github/android/strings.xml android/app/src/main/res/values/strings.xml
           cp .github/android/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
 
       - name: Restore GREAT SAGE icon
