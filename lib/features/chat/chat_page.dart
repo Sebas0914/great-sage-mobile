@@ -125,13 +125,16 @@ class _ChatPageState extends State<ChatPage> {
       if (!mounted) return;
       setState(() => speaking = false);
       await _setMood(RaphaelMood.neutral);
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
+      final details = error.toString().replaceFirst(RegExp(r'^Exception: '), '');
       setState(() {
         sending = false;
         speaking = false;
         voiceAutoSubmitting = false;
-        voiceError = 'No se pudo completar la respuesta.';
+        voiceError = details.isEmpty
+            ? 'No se pudo completar la respuesta.'
+            : details;
       });
       await _setMood(RaphaelMood.neutral);
       await _saveHistory();
