@@ -11,11 +11,20 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private val channelName = "great_sage_mobile/overlay"
 
+    companion object {
+        private var overlayChannel: MethodChannel? = null
+
+        fun notifyOverlayTap() {
+            overlayChannel?.invokeMethod("overlayStartListening", null)
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
-            .setMethodCallHandler { call, result ->
+        val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
+        overlayChannel = channel
+        channel.setMethodCallHandler { call, result ->
                 when (call.method) {
                     "isSupported" -> result.success(true)
                     "hasPermission" -> result.success(
@@ -67,5 +76,10 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    override fun onDestroy() {
+        overlayChannel = null
+        super.onDestroy()
     }
 }
