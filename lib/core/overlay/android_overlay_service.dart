@@ -44,6 +44,10 @@ class AndroidOverlayService implements OverlayService {
     await channel.invokeMethod<void>('hide');
   }
 
+  Future<void> setSubtitle(String text) async {
+    await channel.invokeMethod<void>('setSubtitle', text);
+  }
+
   Future<void> setMood(RaphaelMood mood) async {
     await channel.invokeMethod<void>('setMood', mood.name);
   }

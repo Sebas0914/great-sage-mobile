@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../core/assistant/assistant_message.dart';
 import '../../core/assistant/assistant_provider.dart';
 import '../../core/assistant/assistant_provider_factory.dart';
+import '../../core/assistant/speech_translation_provider.dart';
+import '../../core/overlay/android_overlay_service.dart';
 import '../../core/assistant/assistant_settings_repository.dart';
 import '../../core/storage/chat_history_repository.dart';
 import '../../core/storage/shared_preferences_storage.dart';
@@ -27,6 +29,8 @@ class _ChatPageState extends State<ChatPage> {
   bool listening = false, speaking = false, voiceAutoSubmitting = false;
   RaphaelMood mood = RaphaelMood.neutral;
   String? voiceError;
+  String? activeSubtitle;
+  final overlay = const AndroidOverlayService();
 
   @override
   void initState() {
@@ -53,6 +57,7 @@ class _ChatPageState extends State<ChatPage> {
   void dispose() {
     voice.stopListening();
     voice.stopSpeaking();
+    overlay.setSubtitle('');
     controller.dispose();
     super.dispose();
   }
@@ -137,9 +142,33 @@ class _ChatPageState extends State<ChatPage> {
       });
       await _setMood(RaphaelMood.speaking);
       await _saveHistory();
-      await voice.speak(reply.text);
+
+      // The chat/text channel stays Spanish. Voice gets its own Japanese
+      // translation so neither representation overwrites the other.
+      var spokenText = reply.text;
+      final translator = assistant is SpeechTranslationProvider ? assistant : null;
+      if (translator != null) {
+        try {
+          spokenText = await translator.translateForJapaneseSpeech(reply.text);
+        } catch (_) {
+          // Keep the Spanish response visible even if Japanese translation fails.
+          spokenText = reply.text;
+        }
+      }
+
+      if (mounted) setState(() => activeSubtitle = reply.text);
+      try {
+        await overlay.setSubtitle(reply.text);
+      } catch (_) {}
+      await voice.speak(spokenText);
+      try {
+        await overlay.setSubtitle('');
+      } catch (_) {}
       if (!mounted) return;
-      setState(() => speaking = false);
+      setState(() {
+        speaking = false;
+        activeSubtitle = null;
+      });
       await _setMood(RaphaelMood.neutral);
     } catch (error) {
       if (!mounted) return;
@@ -213,6 +242,7 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> stopVoice() async {
     await voice.stopSpeaking();
+    try { await overlay.setSubtitle(''); } catch (_) {}
     if (!mounted) return;
     setState(() => speaking = false);
     await _setMood(RaphaelMood.neutral);
@@ -261,6 +291,19 @@ class _ChatPageState extends State<ChatPage> {
             mood == RaphaelMood.thinking ? 'Raphael está pensando…' :
             mood == RaphaelMood.listening ? 'Raphael está escuchando…' : 'Raphael está hablando…',
             style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+      if (activeSubtitle != null && activeSubtitle!.trim().isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xCC24262B),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(activeSubtitle!, textAlign: TextAlign.center),
           ),
         ),
       if (voiceAutoSubmitting) const Padding(

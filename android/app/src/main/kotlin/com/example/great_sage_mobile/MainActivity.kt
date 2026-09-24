@@ -7,16 +7,40 @@ import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import org.json.JSONObject
 
 class MainActivity : FlutterActivity() {
     private val channelName = "great_sage_mobile/overlay"
 
+    companion object {
+        private var overlayChannel: MethodChannel? = null
+
+        fun notifyOverlayTap() {
+            overlayChannel?.invokeMethod("overlayStartListening", null)
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
-            .setMethodCallHandler { call, result ->
+        val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
+        overlayChannel = channel
+        channel.setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "automationEnabled" -> result.success(DeviceAutomationService.instance != null)
+                    "openAccessibilitySettings" -> {
+                        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        result.success(true)
+                    }
+                    "executeAutomation" -> {
+                        val service = DeviceAutomationService.instance
+                        val plan = (call.arguments as? Map<*, *>)?.let { JSONObject(it).toString() } ?: "{\"actions\":[]}"
+                        if (service == null) {
+                            result.success(false)
+                        } else {
+                            service.executePlan(plan) { ok -> runOnUiThread { result.success(ok) } }
+                        }
+                    }
                     "isSupported" -> result.success(true)
                     "hasPermission" -> result.success(
                         Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
@@ -33,6 +57,13 @@ class MainActivity : FlutterActivity() {
                             )
                             result.success(true)
                         }
+                    }
+                    "setSubtitle" -> {
+                        val subtitle = call.arguments as? String ?: ""
+                        val intent = Intent(this, RaphaelOverlayService::class.java)
+                        intent.putExtra("subtitle", subtitle)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent) else startService(intent)
+                        result.success(true)
                     }
                     "setMood" -> {
                         val mood = call.arguments as? String ?: "neutral"
@@ -67,5 +98,10 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    override fun onDestroy() {
+        overlayChannel = null
+        super.onDestroy()
     }
 }
