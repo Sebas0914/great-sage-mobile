@@ -3,11 +3,12 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import 'assistant_message.dart';
+import '../automation/automation_provider.dart';
 import 'assistant_provider.dart';
 import 'assistant_settings.dart';
 import 'speech_translation_provider.dart';
 
-class OpenAiCompatibleProvider implements AssistantProvider, SpeechTranslationProvider {
+class OpenAiCompatibleProvider implements AssistantProvider, SpeechTranslationProvider, AutomationProvider {
   OpenAiCompatibleProvider({required AssistantSettings settings, http.Client? client})
       : _settings = settings, _client = client ?? _createClient();
   final AssistantSettings _settings;
@@ -183,6 +184,57 @@ class OpenAiCompatibleProvider implements AssistantProvider, SpeechTranslationPr
     if (answer.isEmpty) {
       throw const FormatException('La traducción japonesa llegó vacía.');
     }
+    return answer;
+  }
+
+  @override
+  Future<String> planAutomation(String command) async {
+    final text = command.trim();
+    if (text.isEmpty) return '{"actions":[]}';
+    final base = _settings.apiBaseUrl.trim().replaceFirst(RegExp(r'/(Uri uri, Map<String, dynamic> body) => _client.post(
+    uri,
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      if (_settings.apiKey.trim().isNotEmpty)
+        'Authorization': 'Bearer ' + _settings.apiKey.trim(),
+    },
+    body: jsonEncode(body),
+  ).timeout(const Duration(seconds: 60));
+}
+), '');
+    final model = _settings.model.trim();
+    final uri = Uri.tryParse(base + '/chat/completions');
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty || model.isEmpty) {
+      throw const FormatException('La configuración de NVIDIA no es válida para automatización.');
+    }
+    final response = await _post(uri, {
+      'model': model,
+      'messages': [
+        {
+          'role': 'system',
+          'content': 'Eres el planificador de acciones de un asistente Android. Devuelve SOLO JSON válido con {"actions":[...]}. Acciones permitidas: open_app {package}, tap_text {text}, tap_description {text}, type_text {text}, back {}, home {}, swipe {direction}. Para Instagram usa com.instagram.android. No inventes paquetes salvo que sean conocidos. No escribas explicaciones. Ejecuta únicamente lo pedido por el usuario.'
+        },
+        {'role': 'user', 'content': text},
+      ],
+      'stream': false,
+      'max_tokens': 1024,
+      'temperature': 0.1,
+      'chat_template_kwargs': {'enable_thinking': false},
+    });
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('No se pudo planificar la automatización (HTTP ${response.statusCode}).');
+    }
+    final decoded = jsonDecode(response.body);
+    final choices = decoded is Map ? decoded['choices'] : null;
+    final message = choices is List && choices.isNotEmpty && choices.first is Map
+        ? choices.first['message']
+        : null;
+    final answer = message is Map && message['content'] is String
+        ? (message['content'] as String).trim()
+        : '';
+    if (answer.isEmpty) throw const FormatException('El plan de automatización llegó vacío.');
+    jsonDecode(answer);
     return answer;
   }
 
