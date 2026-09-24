@@ -13,31 +13,13 @@ class OpenAiCompatibleProvider implements AssistantProvider {
   final http.Client _client;
 
   static http.Client _createClient() {
-    const ips = <String>['75.2.113.119', '99.83.136.103'];
-    const host = 'integrate.api.nvidia.com';
+    // Use Android/Dart's normal HTTPS stack so TLS SNI and the
+    // certificate for integrate.api.nvidia.com are preserved.
+    // Hard-coding the AWS load-balancer IPs here breaks HTTPS on
+    // some Android networks because the connection loses the
+    // hostname-based TLS routing.
     final c = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 15)
-      ..connectionFactory = (uri, proxyHost, proxyPort) async {
-        if (proxyHost != null || proxyPort != null || uri.host != host) {
-          return Socket.startConnect(uri.host, uri.port);
-        }
-        try {
-          final a = await InternetAddress.lookup(host, type: InternetAddressType.IPv4);
-          if (a.isNotEmpty) return Socket.startConnect(a.first, uri.port);
-        } catch (_) {}
-        Object? lastError;
-        for (final ip in ips) {
-          try {
-            return await Socket.startConnect(
-              InternetAddress(ip, type: InternetAddressType.IPv4), uri.port);
-          } catch (e) { lastError = e; }
-        }
-        throw SocketException(
-          'No se pudo resolver ni alcanzar ' + host +
-          (lastError == null ? '' : ': ' + lastError.toString()),
-        );
-      }
-      ..findProxy = (uri) => 'DIRECT';
+      ..connectionTimeout = const Duration(seconds: 15);
     return IOClient(c);
   }
 
