@@ -43,6 +43,13 @@ class MainActivity : FlutterActivity() {
                             result.success(true)
                         }
                     }
+                    "setSubtitle" -> {
+                        val subtitle = call.arguments as? String ?: ""
+                        val intent = Intent(this, RaphaelOverlayService::class.java)
+                        intent.putExtra("subtitle", subtitle)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent) else startService(intent)
+                        result.success(true)
+                    }
                     "setMood" -> {
                         val mood = call.arguments as? String ?: "neutral"
                         val intent = Intent(this, RaphaelOverlayService::class.java)
