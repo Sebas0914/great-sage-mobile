@@ -16,6 +16,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.TextView
 import kotlin.math.abs
 
@@ -23,7 +24,7 @@ class RaphaelOverlayService : Service() {
     private lateinit var windowManager: WindowManager
     private var overlayView: View? = null
     private var overlayParams: WindowManager.LayoutParams? = null
-    private var label: TextView? = null
+    private var iconView: ImageView? = null
     private var core: View? = null
     private var subtitle: TextView? = null
     private val handler = Handler(Looper.getMainLooper())
@@ -146,19 +147,18 @@ class RaphaelOverlayService : Service() {
             (60 * density).toInt(), (60 * density).toInt(), Gravity.CENTER
         ))
 
-        val labelView = TextView(this).apply {
-            text = "✦"
-            textSize = 27f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
+        val icon = ImageView(this).apply {
+            setImageResource(R.drawable.great_sage_icon)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
             contentDescription = "Raphael"
+            setPadding((7 * density).toInt(), (7 * density).toInt(), (7 * density).toInt(), (7 * density).toInt())
         }
-        inner.addView(labelView, FrameLayout.LayoutParams(
+        inner.addView(icon, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT
         ))
 
-        label = labelView
+        iconView = icon
         core = inner
 
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -224,7 +224,7 @@ class RaphaelOverlayService : Service() {
         overlayView = null
         overlayParams = null
         subtitle = null
-        label = null
+        iconView = null
         core = null
         super.onDestroy()
     }
@@ -238,27 +238,28 @@ class RaphaelOverlayService : Service() {
     }
 
     private fun updateMood(mood: String) {
-        val view = label ?: return
         val inner = core ?: return
-
-        val (symbol, color) = when (mood) {
-            "listening" -> "◉" to Color.rgb(72, 216, 255)
-            "thinking" -> "…" to Color.rgb(156, 140, 255)
-            "speaking" -> "≈" to Color.rgb(124, 255, 178)
-            "happy" -> "✦" to Color.rgb(255, 215, 106)
-            else -> "✦" to Color.rgb(140, 131, 255)
+        val color = when (mood) {
+            "listening" -> Color.rgb(72, 216, 255)
+            "thinking" -> Color.rgb(156, 140, 255)
+            "speaking" -> Color.rgb(124, 255, 178)
+            "happy" -> Color.rgb(255, 215, 106)
+            else -> Color.rgb(140, 131, 255)
         }
-
-        view.text = symbol
-        view.setTextColor(color)
         (inner.background as? GradientDrawable)?.setStroke(
             (1 * resources.displayMetrics.density).toInt(), color
         )
         inner.animate().cancel()
+        if (mood == "neutral") {
+            inner.scaleX = 1f
+            inner.scaleY = 1f
+            inner.alpha = 1f
+            return
+        }
         inner.animate()
-            .scaleX(if (mood == "happy") 1.16f else 1.12f)
-            .scaleY(if (mood == "happy") 1.16f else 1.12f)
-            .alpha(0.82f)
+            .scaleX(if (mood == "happy") 1.16f else 1.10f)
+            .scaleY(if (mood == "happy") 1.16f else 1.10f)
+            .alpha(0.86f)
             .setDuration(220)
             .withEndAction {
                 inner.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(220).start()
