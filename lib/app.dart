@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'core/overlay/android_overlay_service.dart';
-import 'features/chat/chat_page.dart';
 import 'features/home/home_page.dart';
 
 class GreatSageMobileApp extends StatefulWidget {
