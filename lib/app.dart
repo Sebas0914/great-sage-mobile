@@ -12,16 +12,13 @@ class GreatSageMobileApp extends StatefulWidget {
 }
 
 class _GreatSageMobileAppState extends State<GreatSageMobileApp> {
-  final navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
     super.initState();
     AndroidOverlayService.channel.setMethodCallHandler((call) async {
       if (call.method == 'overlayStartListening') {
-        navigatorKey.currentState?.push(
-          MaterialPageRoute(builder: (_) => const ChatPage(autoListen: true)),
-        );
+        await BackgroundRaphaelController.instance.toggleListening();
         return true;
       }
       return null;
@@ -43,7 +40,6 @@ class _GreatSageMobileAppState extends State<GreatSageMobileApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      navigatorKey: navigatorKey,
       title: 'GREAT SAGE Mobile',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
