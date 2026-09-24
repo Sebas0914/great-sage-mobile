@@ -26,6 +26,20 @@ class MainActivity : FlutterActivity() {
         overlayChannel = channel
         channel.setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "automationEnabled" -> result.success(DeviceAutomationService.instance != null)
+                    "openAccessibilitySettings" -> {
+                        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        result.success(true)
+                    }
+                    "executeAutomation" -> {
+                        val service = DeviceAutomationService.instance
+                        val plan = call.arguments?.toString() ?: "{\"actions\":[]}"
+                        if (service == null) {
+                            result.success(false)
+                        } else {
+                            service.executePlan(plan) { ok -> runOnUiThread { result.success(ok) } }
+                        }
+                    }
                     "isSupported" -> result.success(true)
                     "hasPermission" -> result.success(
                         Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
