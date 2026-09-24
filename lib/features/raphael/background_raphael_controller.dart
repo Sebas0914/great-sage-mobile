@@ -3,6 +3,8 @@ import '../../core/assistant/assistant_provider.dart';
 import '../../core/assistant/assistant_provider_factory.dart';
 import '../../core/assistant/assistant_settings_repository.dart';
 import '../../core/assistant/speech_translation_provider.dart';
+import '../../core/automation/android_automation_service.dart';
+import '../../core/automation/automation_provider.dart';
 import '../../core/overlay/android_overlay_service.dart';
 import '../../core/storage/chat_history_repository.dart';
 import '../../core/storage/shared_preferences_storage.dart';
@@ -17,6 +19,7 @@ class BackgroundRaphaelController {
   final _voice = DeviceVoiceService();
   final _overlay = const AndroidOverlayService();
   final _runtime = RaphaelRuntime.instance;
+  final _automation = const AndroidAutomationService();
 
   AssistantProvider? _provider;
   ChatHistoryRepository? _history;
@@ -55,6 +58,12 @@ class BackgroundRaphaelController {
     }
   }
 
+  bool _looksLikeAutomation(String text) {
+    final t = text.toLowerCase();
+    const words = ['abre ', 'abrir ', 'manda ', 'mandar ', 'envía ', 'enviar ', 'escribe en ', 'entra a ', 'pulsa ', 'toca ', 'haz clic', 'desliza ', 'abre instagram', 'en instagram'];
+    return words.any(t.contains);
+  }
+
   Future<void> _ensureReady() async {
     if (_provider != null && _history != null) return;
     final storage = await SharedPreferencesStorage.create();
@@ -78,6 +87,35 @@ class BackgroundRaphaelController {
         createdAt: DateTime.now(),
       );
       final conversation = [...saved, user];
+
+      if (_looksLikeAutomation(text) && provider is AutomationProvider) {
+        final enabled = await _automation.isEnabled();
+        if (!enabled) {
+          await _overlay.setSubtitle('Activa el acceso de accesibilidad de GREAT SAGE para controlar otras apps.');
+          await _automation.openSettings();
+          await Future<void>.delayed(const Duration(seconds: 2));
+          await _overlay.setSubtitle('');
+          await _runtime.setMood(RaphaelMood.neutral);
+          return;
+        }
+        await _runtime.setMood(RaphaelMood.thinking);
+        final plan = await provider.planAutomation(text);
+        final ok = await _automation.executePlan(plan);
+        if (ok) {
+          final done = AssistantMessage(
+            role: MessageRole.assistant,
+            text: 'Listo. Realicé los pasos que me pediste.',
+            createdAt: DateTime.now(),
+          );
+          await history.save([...conversation, done]);
+          await _runtime.setMood(RaphaelMood.speaking);
+          await _overlay.setSubtitle(done.text);
+          await _voice.speak('完了しました。');
+          await _overlay.setSubtitle('');
+          await _runtime.setMood(RaphaelMood.neutral);
+          return;
+        }
+      }
 
       await _runtime.setMood(RaphaelMood.thinking);
       final reply = await provider.sendMessage(
