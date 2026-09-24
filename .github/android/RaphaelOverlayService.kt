@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.content.SharedPreferences
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
@@ -14,14 +15,22 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
-import android.widget.TextView
+import android.widget.ImageView
 
 class RaphaelOverlayService : Service() {
+    companion object {
+        const val ACTION_START_LISTENING = "com.example.great_sage_mobile.START_LISTENING"
+        private const val PREFS = "raphael_overlay"
+        private const val KEY_X = "x"
+        private const val KEY_Y = "y"
+    }
+
     private lateinit var windowManager: WindowManager
     private var overlayView: View? = null
     private var overlayParams: WindowManager.LayoutParams? = null
-    private var label: TextView? = null
+    private var iconView: ImageView? = null
     private var core: View? = null
+    private lateinit var prefs: SharedPreferences
 
     override fun onCreate() {
         super.onCreate()
@@ -39,17 +48,19 @@ class RaphaelOverlayService : Service() {
         }
 
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
 
         val density = resources.displayMetrics.density
-        val size = (104 * density).toInt()
+        val size = (76 * density).toInt()
+        val margin = (8 * density).toInt()
 
         val container = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.argb(235, 8, 12, 24))
-                setStroke((2 * density).toInt(), Color.rgb(124, 99, 255))
+                setColor(Color.argb(238, 7, 10, 16))
+                setStroke((1.5f * density).toInt(), Color.rgb(124, 99, 255))
             }
-            elevation = 16f
+            elevation = 10f
             setOnTouchListener(object : View.OnTouchListener {
                 private var downX = 0f
                 private var downY = 0f
@@ -72,16 +83,33 @@ class RaphaelOverlayService : Service() {
                             val dx = (event.rawX - downX).toInt()
                             val dy = (event.rawY - downY).toInt()
                             if (kotlin.math.abs(dx) > 8 || kotlin.math.abs(dy) > 8) moved = true
-                            params.x = startX - dx
-                            params.y = startY + dy
+                            params.x = (startX + dx).coerceIn(margin, screenWidth() - size - margin)
+                            params.y = (startY + dy).coerceIn(margin, screenHeight() - size - margin)
                             windowManager.updateViewLayout(v, params)
                             return true
                         }
                         MotionEvent.ACTION_UP -> {
-                            if (!moved) {
-                                val launch = packageManager.getLaunchIntentForPackage(packageName)
-                                launch?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                if (launch != null) startActivity(launch)
+                            if (moved) {
+                                val center = params.x + size / 2
+                                val targetX = if (center < screenWidth() / 2) {
+                                    margin
+                                } else {
+                                    screenWidth() - size - margin
+                                }
+                                params.x = targetX.coerceIn(margin, screenWidth() - size - margin)
+                                params.y = params.y.coerceIn(margin, screenHeight() - size - margin)
+                                prefs.edit().putInt(KEY_X, params.x).putInt(KEY_Y, params.y).apply()
+                                windowManager.updateViewLayout(v, params)
+                            } else {
+                                val launch = Intent(this@RaphaelOverlayService, MainActivity::class.java).apply {
+                                    action = ACTION_START_LISTENING
+                                    addFlags(
+                                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                                            Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                                            Intent.FLAG_ACTIVITY_CLEAR_TOP
+                                    )
+                                }
+                                startActivity(launch)
                             }
                             return true
                         }
@@ -95,15 +123,15 @@ class RaphaelOverlayService : Service() {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(Color.TRANSPARENT)
-                setStroke((2 * density).toInt(), Color.rgb(72, 216, 255))
+                setStroke((1.5f * density).toInt(), Color.rgb(72, 216, 255))
             }
-            alpha = 0.55f
+            alpha = 0.5f
         }
         container.addView(
             ring,
             FrameLayout.LayoutParams(
-                (78 * density).toInt(),
-                (78 * density).toInt(),
+                (58 * density).toInt(),
+                (58 * density).toInt(),
                 Gravity.CENTER
             )
         )
@@ -118,28 +146,27 @@ class RaphaelOverlayService : Service() {
         container.addView(
             inner,
             FrameLayout.LayoutParams(
-                (60 * density).toInt(),
-                (60 * density).toInt(),
+                (50 * density).toInt(),
+                (50 * density).toInt(),
                 Gravity.CENTER
             )
         )
 
-        val labelView = TextView(this).apply {
-            text = "✦"
-            textSize = 27f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
+        val icon = ImageView(this).apply {
+            setImageResource(R.drawable.great_sage_icon)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
             contentDescription = "Raphael"
+            setPadding((5 * density).toInt(), (5 * density).toInt(), (5 * density).toInt(), (5 * density).toInt())
         }
         inner.addView(
-            labelView,
+            icon,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
         )
 
-        label = labelView
+        iconView = icon
         core = inner
 
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -148,17 +175,21 @@ class RaphaelOverlayService : Service() {
             WindowManager.LayoutParams.TYPE_PHONE
         }
 
+        val screen = resources.displayMetrics
+        val defaultX = screen.widthPixels - size - margin
+        val savedX = prefs.getInt(KEY_X, defaultX)
+        val savedY = prefs.getInt(KEY_Y, (72 * density).toInt())
+
         val params = WindowManager.LayoutParams(
             size,
             size,
             type,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             android.graphics.PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.TOP or Gravity.END
-            x = (12 * density).toInt()
-            y = (72 * density).toInt()
+            gravity = Gravity.TOP or Gravity.START
+            x = savedX.coerceIn(margin, screen.widthPixels - size - margin)
+            y = savedY.coerceIn(margin, screen.heightPixels - size - margin)
         }
 
         overlayParams = params
@@ -175,27 +206,25 @@ class RaphaelOverlayService : Service() {
         overlayView?.let { windowManager.removeView(it) }
         overlayView = null
         overlayParams = null
-        label = null
+        iconView = null
         core = null
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    private fun screenWidth(): Int = resources.displayMetrics.widthPixels
+    private fun screenHeight(): Int = resources.displayMetrics.heightPixels
+
     private fun updateMood(mood: String) {
-        val view = label ?: return
         val inner = core ?: return
-
-        val (symbol, color) = when (mood) {
-            "listening" -> "◉" to Color.rgb(72, 216, 255)
-            "thinking" -> "…" to Color.rgb(156, 140, 255)
-            "speaking" -> "≈" to Color.rgb(124, 255, 178)
-            "happy" -> "✦" to Color.rgb(255, 215, 106)
-            else -> "✦" to Color.rgb(140, 131, 255)
+        val color = when (mood) {
+            "listening" -> Color.rgb(72, 216, 255)
+            "thinking" -> Color.rgb(156, 140, 255)
+            "speaking" -> Color.rgb(124, 255, 178)
+            "happy" -> Color.rgb(255, 215, 106)
+            else -> Color.rgb(140, 131, 255)
         }
-
-        view.text = symbol
-        view.setTextColor(color)
 
         (inner.background as? GradientDrawable)?.setStroke(
             (1 * resources.displayMetrics.density).toInt(),
@@ -211,16 +240,16 @@ class RaphaelOverlayService : Service() {
         }
 
         inner.animate()
-            .scaleX(1.12f)
-            .scaleY(1.12f)
-            .alpha(0.82f)
-            .setDuration(320)
+            .scaleX(1.08f)
+            .scaleY(1.08f)
+            .alpha(0.86f)
+            .setDuration(280)
             .withEndAction {
                 inner.animate()
                     .scaleX(1f)
                     .scaleY(1f)
                     .alpha(1f)
-                    .setDuration(320)
+                    .setDuration(280)
                     .start()
             }
             .start()
