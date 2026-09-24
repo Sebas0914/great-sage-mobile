@@ -154,7 +154,6 @@ class OpenAiCompatibleProvider implements AssistantProvider, SpeechTranslationPr
     if (uri == null || !uri.hasScheme || uri.host.isEmpty || model.isEmpty) {
       throw const FormatException('La configuración de NVIDIA no es válida para la voz japonesa.');
     }
-
     final response = await _post(uri, {
       'model': model,
       'messages': [
@@ -169,7 +168,6 @@ class OpenAiCompatibleProvider implements AssistantProvider, SpeechTranslationPr
       'temperature': 0.2,
       'chat_template_kwargs': {'enable_thinking': false},
     });
-
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception('No se pudo preparar la voz japonesa (HTTP ${response.statusCode}).');
     }
@@ -181,9 +179,7 @@ class OpenAiCompatibleProvider implements AssistantProvider, SpeechTranslationPr
     final answer = message is Map && message['content'] is String
         ? (message['content'] as String).trim()
         : '';
-    if (answer.isEmpty) {
-      throw const FormatException('La traducción japonesa llegó vacía.');
-    }
+    if (answer.isEmpty) throw const FormatException('La traducción japonesa llegó vacía.');
     return answer;
   }
 
@@ -213,7 +209,7 @@ class OpenAiCompatibleProvider implements AssistantProvider, SpeechTranslationPr
       'messages': [
         {
           'role': 'system',
-          'content': 'Eres el planificador de acciones de un asistente Android. Devuelve SOLO JSON válido con {"actions":[...]}. Acciones permitidas: open_app {package}, tap_text {text}, tap_description {text}, type_text {text}, back {}, home {}, swipe {direction}. Para Instagram usa com.instagram.android. No inventes paquetes salvo que sean conocidos. No escribas explicaciones. Ejecuta únicamente lo pedido por el usuario.'
+          'content': 'Eres el planificador de acciones de un asistente Android. Devuelve SOLO JSON válido con {"actions":[...]}. Acciones permitidas: {"type":"open_app","package":"..."}, {"type":"tap_text","text":"..."}, {"type":"tap_description","text":"..."}, {"type":"type_text","text":"..."}, {"type":"back"}, {"type":"home"}, {"type":"swipe","direction":"up|down|left|right"}. Para Instagram usa com.instagram.android. No inventes paquetes salvo que sean conocidos. No escribas explicaciones. Ejecuta únicamente lo pedido por el usuario.'
         },
         {'role': 'user', 'content': text},
       ],
