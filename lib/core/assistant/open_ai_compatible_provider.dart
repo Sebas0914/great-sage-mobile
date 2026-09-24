@@ -82,7 +82,7 @@ class OpenAiCompatibleProvider implements AssistantProvider {
           ? ''
           : ' Detalle: ${details.length > 600 ? details.substring(0, 600) : details}';
       throw Exception(
-        'El proveedor de IA respondió con HTTP ${response.statusCode}.\$suffix',
+        'El proveedor de IA respondió con HTTP ${response.statusCode}.$suffix',
       );
     }
 
