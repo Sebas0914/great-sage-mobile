@@ -23,7 +23,7 @@ class DeviceVoiceService implements VoiceService {
       onError: (_) => _speechAvailable = false,
     );
 
-    await _tts.setLanguage('es-MX');
+    await _tts.setLanguage('ja-JP');
     await _tts.setSpeechRate(0.48);
     await _tts.setVolume(1.0);
     await _tts.setPitch(1.0);
