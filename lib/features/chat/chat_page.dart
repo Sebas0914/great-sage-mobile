@@ -10,7 +10,9 @@ import '../raphael/raphael_runtime.dart';
 import '../raphael/raphael_state.dart';
 
 class ChatPage extends StatefulWidget {
-  const ChatPage({super.key});
+  const ChatPage({super.key, this.autoListen = false});
+  final bool autoListen;
+
   @override State<ChatPage> createState() => _ChatPageState();
 }
 
@@ -31,6 +33,20 @@ class _ChatPageState extends State<ChatPage> {
     super.initState();
     _loadHistory();
     _loadAssistant();
+    if (widget.autoListen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _waitForVoiceAndListen());
+    }
+  }
+
+  Future<void> _waitForVoiceAndListen() async {
+    for (var i = 0; i < 20; i++) {
+      if (!mounted) return;
+      if (!loadingHistory && !loadingAssistant) {
+        await toggleListening();
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
   }
 
   @override
