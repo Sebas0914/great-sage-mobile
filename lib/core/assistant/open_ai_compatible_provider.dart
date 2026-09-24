@@ -5,8 +5,9 @@ import 'package:http/io_client.dart';
 import 'assistant_message.dart';
 import 'assistant_provider.dart';
 import 'assistant_settings.dart';
+import 'speech_translation_provider.dart';
 
-class OpenAiCompatibleProvider implements AssistantProvider {
+class OpenAiCompatibleProvider implements AssistantProvider, SpeechTranslationProvider {
   OpenAiCompatibleProvider({required AssistantSettings settings, http.Client? client})
       : _settings = settings, _client = client ?? _createClient();
   final AssistantSettings _settings;
@@ -129,6 +130,60 @@ class OpenAiCompatibleProvider implements AssistantProvider {
     final answer = (message['content'] as String).trim();
     if (answer.isEmpty) throw const FormatException('La IA devolvió una respuesta vacía.');
     return AssistantMessage(role: MessageRole.assistant, text: answer, createdAt: DateTime.now());
+  }
+
+  @override
+  Future<String> translateForJapaneseSpeech(String spanishText) async {
+    final text = spanishText.trim();
+    if (text.isEmpty) return '';
+    final base = _settings.apiBaseUrl.trim().replaceFirst(RegExp(r'/(Uri uri, Map<String, dynamic> body) => _client.post(
+    uri,
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      if (_settings.apiKey.trim().isNotEmpty)
+        'Authorization': 'Bearer ' + _settings.apiKey.trim(),
+    },
+    body: jsonEncode(body),
+  ).timeout(const Duration(seconds: 60));
+}
+), '');
+    final model = _settings.model.trim();
+    final uri = Uri.tryParse(base + '/chat/completions');
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty || model.isEmpty) {
+      throw const FormatException('La configuración de NVIDIA no es válida para la voz japonesa.');
+    }
+
+    final response = await _post(uri, {
+      'model': model,
+      'messages': [
+        {
+          'role': 'system',
+          'content': 'Traduce al japonés natural el texto en español. Conserva exactamente el significado, nombres propios, números y tono. Devuelve SOLO el japonés, sin explicaciones, sin comillas y sin markdown.'
+        },
+        {'role': 'user', 'content': text},
+      ],
+      'stream': false,
+      'max_tokens': 2048,
+      'temperature': 0.2,
+      'chat_template_kwargs': {'enable_thinking': false},
+    });
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('No se pudo preparar la voz japonesa (HTTP ${response.statusCode}).');
+    }
+    final decoded = jsonDecode(response.body);
+    final choices = decoded is Map ? decoded['choices'] : null;
+    final message = choices is List && choices.isNotEmpty && choices.first is Map
+        ? choices.first['message']
+        : null;
+    final answer = message is Map && message['content'] is String
+        ? (message['content'] as String).trim()
+        : '';
+    if (answer.isEmpty) {
+      throw const FormatException('La traducción japonesa llegó vacía.');
+    }
+    return answer;
   }
 
   Future<http.Response> _post(Uri uri, Map<String, dynamic> body) => _client.post(
