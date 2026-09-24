@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 
 import 'assistant_message.dart';
 import 'assistant_provider.dart';
@@ -9,10 +11,57 @@ import 'assistant_settings.dart';
 class OpenAiCompatibleProvider implements AssistantProvider {
   OpenAiCompatibleProvider({required AssistantSettings settings, http.Client? client})
       : _settings = settings,
-        _client = client ?? http.Client();
+        _client = client ?? _createClient();
 
   final AssistantSettings _settings;
   final http.Client _client;
+
+  static http.Client _createClient() {
+    const fallbackIps = <String>[
+      '75.2.113.119',
+      '99.83.136.103',
+    ];
+    const nvidiaHost = 'integrate.api.nvidia.com';
+
+    final httpClient = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 15)
+      ..connectionFactory = (uri, proxyHost, proxyPort) async {
+        if (proxyHost != null || proxyPort != null || uri.host != nvidiaHost) {
+          return Socket.startConnect(uri.host, uri.port);
+        }
+
+        try {
+          final addresses = await InternetAddress.lookup(
+            nvidiaHost,
+            type: InternetAddressType.IPv4,
+          );
+          if (addresses.isNotEmpty) {
+            return Socket.startConnect(addresses.first, uri.port);
+          }
+        } catch (_) {}
+
+        Object? lastError;
+        for (final ip in fallbackIps) {
+          try {
+            return await Socket.startConnect(
+              InternetAddress(ip, type: InternetAddressType.IPv4),
+              uri.port,
+            );
+          } catch (error) {
+            lastError = error;
+          }
+        }
+
+        throw SocketException(
+          'No se pudo resolver ni alcanzar ' +
+              nvidiaHost +
+              (lastError == null ? '' : ': ' + lastError.toString()),
+        );
+      }
+      ..findProxy = (uri) => 'DIRECT';
+
+    return IOClient(httpClient);
+  }
 
   @override
   Future<AssistantMessage> sendMessage({
@@ -53,36 +102,40 @@ class OpenAiCompatibleProvider implements AssistantProvider {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
               if (_settings.apiKey.trim().isNotEmpty)
-                'Authorization': 'Bearer ${_settings.apiKey.trim()}',
+                'Authorization': 'Bearer ' + _settings.apiKey.trim(),
             },
             body: jsonEncode({
               'model': model,
               'messages': messages,
-              // NVIDIA's Nemotron 3.5 Lightning hosted endpoint defaults to
-              // streaming. This client expects one JSON response, so explicitly
-              // disable SSE streaming.
               'stream': false,
-              // Keep the mobile client responsive and leave enough budget for
-              // the visible answer.
               'max_tokens': 2048,
               'temperature': 0.7,
-              // Nemotron 3.5 is a reasoning model. Disable internal thinking
-              // here so message.content contains the final answer directly.
               'chat_template_kwargs': {'enable_thinking': false},
             }),
           )
           .timeout(const Duration(seconds: 60));
+    } on SocketException catch (error) {
+      throw Exception(
+        'No se pudo conectar con NVIDIA. Android no pudo resolver o alcanzar '
+        'integrate.api.nvidia.com: ' +
+            error.toString(),
+      );
+    } on http.ClientException catch (error) {
+      throw Exception('No se pudo conectar con el proveedor de IA: ' + error.toString());
     } on Exception catch (error) {
-      throw Exception('No se pudo conectar con el proveedor de IA: $error');
+      throw Exception('No se pudo conectar con el proveedor de IA: ' + error.toString());
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final details = response.body.trim();
       final suffix = details.isEmpty
           ? ''
-          : ' Detalle: ${details.length > 600 ? details.substring(0, 600) : details}';
+          : ' Detalle: ' + (details.length > 600 ? details.substring(0, 600) : details);
       throw Exception(
-        'El proveedor de IA respondió con HTTP ${response.statusCode}.$suffix',
+        'El proveedor de IA respondió con HTTP ' +
+            response.statusCode.toString() +
+            '.' +
+            suffix,
       );
     }
 
