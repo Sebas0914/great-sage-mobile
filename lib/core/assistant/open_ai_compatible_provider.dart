@@ -53,7 +53,7 @@ class OpenAiCompatibleProvider implements AssistantProvider {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
               if (_settings.apiKey.trim().isNotEmpty)
-                'Authorization': 'Bearer \${_settings.apiKey.trim()}',
+                'Authorization': 'Bearer ${_settings.apiKey.trim()}',
             },
             body: jsonEncode({
               'model': model,
@@ -80,9 +80,9 @@ class OpenAiCompatibleProvider implements AssistantProvider {
       final details = response.body.trim();
       final suffix = details.isEmpty
           ? ''
-          : ' Detalle: \${details.length > 600 ? details.substring(0, 600) : details}';
+          : ' Detalle: ${details.length > 600 ? details.substring(0, 600) : details}';
       throw Exception(
-        'El proveedor de IA respondió con HTTP \${response.statusCode}.\$suffix',
+        'El proveedor de IA respondió con HTTP ${response.statusCode}.\$suffix',
       );
     }
 
