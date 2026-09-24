@@ -8,13 +8,16 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.TextView
+import kotlin.math.abs
 
 class RaphaelOverlayService : Service() {
     private lateinit var windowManager: WindowManager
@@ -22,6 +25,9 @@ class RaphaelOverlayService : Service() {
     private var overlayParams: WindowManager.LayoutParams? = null
     private var label: TextView? = null
     private var core: View? = null
+    private var subtitle: TextView? = null
+    private val handler = Handler(Looper.getMainLooper())
+    private var longPressRunnable: Runnable? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -39,7 +45,6 @@ class RaphaelOverlayService : Service() {
         }
 
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-
         val density = resources.displayMetrics.density
         val size = (104 * density).toInt()
 
@@ -56,6 +61,9 @@ class RaphaelOverlayService : Service() {
                 private var startX = 0
                 private var startY = 0
                 private var moved = false
+                private var lastTime = 0L
+                private var lastX = 0f
+                private var lastY = 0f
 
                 override fun onTouch(v: View, event: MotionEvent): Boolean {
                     val params = overlayParams ?: return false
@@ -65,23 +73,47 @@ class RaphaelOverlayService : Service() {
                             downY = event.rawY
                             startX = params.x
                             startY = params.y
+                            lastX = event.rawX
+                            lastY = event.rawY
+                            lastTime = System.currentTimeMillis()
                             moved = false
+                            longPressRunnable?.let(handler::removeCallbacks)
+                            longPressRunnable = Runnable {
+                                updateMood("happy")
+                                MainActivity.notifyOverlayTap()
+                            }.also { handler.postDelayed(it, 650) }
                             return true
                         }
                         MotionEvent.ACTION_MOVE -> {
-                            val dx = (event.rawX - downX).toInt()
-                            val dy = (event.rawY - downY).toInt()
-                            if (kotlin.math.abs(dx) > 8 || kotlin.math.abs(dy) > 8) moved = true
-                            params.x = startX - dx
-                            params.y = startY + dy
+                            val now = System.currentTimeMillis()
+                            val dx = event.rawX - downX
+                            val dy = event.rawY - downY
+                            val dt = (now - lastTime).coerceAtLeast(1L)
+                            val speed = (abs(event.rawX - lastX) + abs(event.rawY - lastY)) / dt
+                            if (abs(dx) > 8 || abs(dy) > 8) {
+                                moved = true
+                                longPressRunnable?.let(handler::removeCallbacks)
+                                if (speed > 2.5f) {
+                                    updateMood("thinking")
+                                } else if (speed > 0.15f) {
+                                    updateMood("happy")
+                                }
+                            }
+                            params.x = startX - dx.toInt()
+                            params.y = startY + dy.toInt()
                             windowManager.updateViewLayout(v, params)
+                            lastTime = now
+                            lastX = event.rawX
+                            lastY = event.rawY
                             return true
                         }
-                        MotionEvent.ACTION_UP -> {
-                            if (!moved) {
-                                val launch = packageManager.getLaunchIntentForPackage(packageName)
-                                launch?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                if (launch != null) startActivity(launch)
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                            longPressRunnable?.let(handler::removeCallbacks)
+                            longPressRunnable = null
+                            if (!moved && event.actionMasked == MotionEvent.ACTION_UP) {
+                                MainActivity.notifyOverlayTap()
+                            } else {
+                                handler.postDelayed({ updateMood("neutral") }, 700)
                             }
                             return true
                         }
@@ -99,14 +131,9 @@ class RaphaelOverlayService : Service() {
             }
             alpha = 0.55f
         }
-        container.addView(
-            ring,
-            FrameLayout.LayoutParams(
-                (78 * density).toInt(),
-                (78 * density).toInt(),
-                Gravity.CENTER
-            )
-        )
+        container.addView(ring, FrameLayout.LayoutParams(
+            (78 * density).toInt(), (78 * density).toInt(), Gravity.CENTER
+        ))
 
         val inner = FrameLayout(this).apply {
             background = GradientDrawable().apply {
@@ -115,14 +142,9 @@ class RaphaelOverlayService : Service() {
                 setStroke((1 * density).toInt(), Color.rgb(156, 140, 255))
             }
         }
-        container.addView(
-            inner,
-            FrameLayout.LayoutParams(
-                (60 * density).toInt(),
-                (60 * density).toInt(),
-                Gravity.CENTER
-            )
-        )
+        container.addView(inner, FrameLayout.LayoutParams(
+            (60 * density).toInt(), (60 * density).toInt(), Gravity.CENTER
+        ))
 
         val labelView = TextView(this).apply {
             text = "✦"
@@ -131,13 +153,10 @@ class RaphaelOverlayService : Service() {
             gravity = Gravity.CENTER
             contentDescription = "Raphael"
         }
-        inner.addView(
-            labelView,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-        )
+        inner.addView(labelView, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        ))
 
         label = labelView
         core = inner
@@ -164,23 +183,59 @@ class RaphaelOverlayService : Service() {
         overlayParams = params
         windowManager.addView(container, params)
         overlayView = container
+
+        val subtitleView = TextView(this).apply {
+            textSize = 17f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setPadding((16 * density).toInt(), (10 * density).toInt(), (16 * density).toInt(), (10 * density).toInt())
+            background = GradientDrawable().apply {
+                cornerRadius = 14f * density
+                setColor(Color.argb(205, 35, 37, 42))
+            }
+            visibility = View.GONE
+        }
+        val subtitleParams = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            type,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            android.graphics.PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.BOTTOM
+            x = (18 * density).toInt()
+            y = (28 * density).toInt()
+        }
+        windowManager.addView(subtitleView, subtitleParams)
+        subtitle = subtitleView
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         intent?.getStringExtra("mood")?.let { updateMood(it) }
+        intent?.getStringExtra("subtitle")?.let { updateSubtitle(it) }
         return START_STICKY
     }
 
     override fun onDestroy() {
+        longPressRunnable?.let(handler::removeCallbacks)
         overlayView?.let { windowManager.removeView(it) }
+        subtitle?.let { windowManager.removeView(it) }
         overlayView = null
         overlayParams = null
+        subtitle = null
         label = null
         core = null
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun updateSubtitle(text: String) {
+        val view = subtitle ?: return
+        view.text = text
+        view.visibility = if (text.isBlank()) View.GONE else View.VISIBLE
+    }
 
     private fun updateMood(mood: String) {
         val view = label ?: return
@@ -196,45 +251,26 @@ class RaphaelOverlayService : Service() {
 
         view.text = symbol
         view.setTextColor(color)
-
         (inner.background as? GradientDrawable)?.setStroke(
-            (1 * resources.displayMetrics.density).toInt(),
-            color
+            (1 * resources.displayMetrics.density).toInt(), color
         )
-
         inner.animate().cancel()
-        if (mood == "neutral") {
-            inner.scaleX = 1f
-            inner.scaleY = 1f
-            inner.alpha = 1f
-            return
-        }
-
         inner.animate()
-            .scaleX(1.12f)
-            .scaleY(1.12f)
+            .scaleX(if (mood == "happy") 1.16f else 1.12f)
+            .scaleY(if (mood == "happy") 1.16f else 1.12f)
             .alpha(0.82f)
-            .setDuration(320)
+            .setDuration(220)
             .withEndAction {
-                inner.animate()
-                    .scaleX(1f)
-                    .scaleY(1f)
-                    .alpha(1f)
-                    .setDuration(320)
-                    .start()
-            }
-            .start()
+                inner.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(220).start()
+            }.start()
     }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                "raphael_overlay",
-                "Raphael",
-                NotificationManager.IMPORTANCE_LOW
+                "raphael_overlay", "Raphael", NotificationManager.IMPORTANCE_LOW
             )
-            getSystemService(NotificationManager::class.java)
-                .createNotificationChannel(channel)
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
     }
 
