@@ -62,6 +62,7 @@ class RaphaelOverlayService : Service() {
                 private var startX = 0
                 private var startY = 0
                 private var moved = false
+                private var longPressed = false
                 private var lastTime = 0L
                 private var lastX = 0f
                 private var lastY = 0f
@@ -78,8 +79,10 @@ class RaphaelOverlayService : Service() {
                             lastY = event.rawY
                             lastTime = System.currentTimeMillis()
                             moved = false
+                            longPressed = false
                             longPressRunnable?.let(handler::removeCallbacks)
                             longPressRunnable = Runnable {
+                                longPressed = true
                                 updateMood("happy")
                                 MainActivity.notifyOverlayTap()
                             }.also { handler.postDelayed(it, 650) }
@@ -111,7 +114,7 @@ class RaphaelOverlayService : Service() {
                         MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                             longPressRunnable?.let(handler::removeCallbacks)
                             longPressRunnable = null
-                            if (!moved && event.actionMasked == MotionEvent.ACTION_UP) {
+                            if (!moved && !longPressed && event.actionMasked == MotionEvent.ACTION_UP) {
                                 MainActivity.notifyOverlayTap()
                             } else {
                                 handler.postDelayed({ updateMood("neutral") }, 700)
