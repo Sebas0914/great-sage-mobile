@@ -10,6 +10,7 @@ on:
 jobs:
   build-apk:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -57,30 +58,30 @@ jobs:
         run: flutter pub get
 
       - name: Build release APK
-        run: flutter build apk --release
+        run: timeout 10m flutter build apk --release
 
       - name: Generate release signing key
         run: |
-          keytool -genkeypair -v \\
-            -keystore android/release-keystore.jks \\
-            -storepass greatsage-release \\
-            -keypass greatsage-release \\
-            -alias great-sage \\
-            -keyalg RSA -keysize 2048 -validity 10000 \\
+          keytool -genkeypair -v \
+            -keystore android/release-keystore.jks \
+            -storepass greatsage-release \
+            -keypass greatsage-release \
+            -alias great-sage \
+            -keyalg RSA -keysize 2048 -validity 10000 \
             -dname "CN=GREAT SAGE, OU=Mobile, O=GREAT SAGE, L=Ensenada, ST=Baja California, C=MX"
 
       - name: Sign APK (v2/v3)
         run: |
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
           test -n "$APKSIGNER"
-          "$APKSIGNER" sign \\
-            --ks android/release-keystore.jks \\
-            --ks-pass pass:greatsage-release \\
-            --key-pass pass:greatsage-release \\
-            --ks-key-alias great-sage \\
-            --v1-signing-enabled true \\
-            --v2-signing-enabled true \\
-            --v3-signing-enabled true \\
+          "$APKSIGNER" sign \
+            --ks android/release-keystore.jks \
+            --ks-pass pass:greatsage-release \
+            --key-pass pass:greatsage-release \
+            --ks-key-alias great-sage \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
             build/app/outputs/flutter-apk/app-release.apk
           "$APKSIGNER" verify --verbose build/app/outputs/flutter-apk/app-release.apk
           rm -f android/release-keystore.jks
