@@ -88,7 +88,8 @@ class BackgroundRaphaelController {
       );
       final conversation = [...saved, user];
 
-      if (_looksLikeAutomation(text) && provider is AutomationProvider) {
+      final automationProvider = provider is AutomationProvider ? provider as AutomationProvider : null;
+      if (_looksLikeAutomation(text) && automationProvider != null) {
         final enabled = await _automation.isEnabled();
         if (!enabled) {
           await _overlay.setSubtitle('Activa el acceso de accesibilidad de GREAT SAGE para controlar otras apps.');
@@ -99,7 +100,7 @@ class BackgroundRaphaelController {
           return;
         }
         await _runtime.setMood(RaphaelMood.thinking);
-        final plan = await provider.planAutomation(text);
+        final plan = await automationProvider.planAutomation(text);
         final ok = await _automation.executePlan(plan);
         if (ok) {
           final done = AssistantMessage(
@@ -125,9 +126,10 @@ class BackgroundRaphaelController {
       await history.save([...conversation, reply]);
 
       var spokenText = reply.text;
-      if (provider is SpeechTranslationProvider) {
+      final translator = provider is SpeechTranslationProvider ? provider as SpeechTranslationProvider : null;
+      if (translator != null) {
         try {
-          spokenText = await provider.translateForJapaneseSpeech(reply.text);
+          spokenText = await translator.translateForJapaneseSpeech(reply.text);
         } catch (_) {}
       }
 
